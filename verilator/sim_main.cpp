@@ -54,7 +54,6 @@ const int input_pause = 11;
 #define VGA_ROTATE -1  // 90 degrees anti-clockwise
 SimVideo video(VGA_WIDTH, VGA_HEIGHT, VGA_ROTATE);
 
-
 // Simulation control
 // ------------------
 int initialReset = 48;

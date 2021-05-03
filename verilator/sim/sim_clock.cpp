@@ -2,8 +2,9 @@
 #include "sim_clock.h"
 #include <string>
 
-bool clk, old;
-int ratio, count;
+
+//bool clk, old;
+//int ratio, count;
 
 SimClock::SimClock(int r) {
 	ratio = r;
@@ -18,7 +19,9 @@ SimClock::~SimClock() {
 void SimClock::Tick() {
 	old = clk;
 	count++;
-	if (count >= ratio) { clk = !clk; count = 0; }
+	if (count >= ratio) {
+		clk = !clk; count = 0;
+	}
 }
 
 void SimClock::Reset() {

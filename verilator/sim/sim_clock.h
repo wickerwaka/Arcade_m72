@@ -1,6 +1,6 @@
 #pragma once
 
-struct SimClock
+class SimClock
 {
 
 public:
@@ -10,4 +10,7 @@ public:
 	SimClock::~SimClock();
 	void Tick();
 	void Reset();
+
+private:
+	int ratio, count;
 };

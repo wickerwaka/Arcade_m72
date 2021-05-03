@@ -59,7 +59,7 @@ module top(
    assign joystick[3:0] = { ~inputs[0],~inputs[1],~inputs[2],~inputs[3] }; // right, left, down, up 2
    assign pause = inputs[11];       // pause
 
-    centipede uut(
+   centipede uut(
 		 .clk_12mhz(clk_12),
  		 .reset(reset),
 		 .playerinput_i(playerinput),
