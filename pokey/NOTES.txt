@@ -1,0 +1,108 @@
+http://www.atariarchives.org/dere/chapt07.php
+
+Register Offsets
+
+	 in	out
+0000 0x0 	AUDF0
+0001 0x1 	AUDC0
+0010 0x2 	AUDF1
+0011 0x3 	AUDC1
+0100 0x4 	AUDF2
+0101 0x5 	AUDC2
+0110 0x6 	AUDF3
+0111 0x7 	AUDC3
+
+1000 0x8 ALLPOT	AUDCTL
+1001 0x9 KBCODE
+1010 0xa RANDOM SKRES
+1011 0xb	POTGO	
+1100 0xc RANDOM
+1101 0xd SERIN	SEROUT
+1110 0xe IRQST	IRQEN
+1111 0xf SKCTL	SKSTAT rst_bits?
+
+
+AUDF1-3
+frequency register
+
+AUDC1-4
+control register
+
+76543210
+ddd       distortion selection (combination of poly-counters)
+   o      vol only
+    vvvv  volume
+
+76543210
+000 div clock by freq, select using 5 bit then 17 bit poly, div by 2
+0x1 div clock by freq, select using 5-bit poly, then div by 2
+010 div clock by freq, select using 5-bit then 4 bit polys, div by 2
+100 div clock by freq, select using 17-bit poly, div by 2
+1x1 div clock by freq, then div by 2 (no poly-counters)
+110 div clock by freq, select using 4 bit poly, div by 2
+
+
+76543210
+     low frequencies        middle frequencies        high frequencies
+000  geiger counter	     raging fire       rushing air   steam 
+0x1  machine gun    auto at idle    electric motor   power transformer
+010     calm fire       laboring auto             auto with a "miss"
+100         building crashing in        radio interence      waterfall
+1x1  pure tones
+110   airplane          lawn mower          electric razor
+
+
+AUDCTL
+
+76543210
+|||||||+- switches main clock base from 64 KHz to 15 KHz
+||||||+-- insert high-pass filter into chan 2, clocked by chan 4
+|||||+--- insert high-pass filter into chan 1, clocked by chan 3
+||||+---- joins channel 4 to channel 3 (16 bit resolution)
+|||+----- joins channel 2 to channel 1 (16 bit resolution)
+||+------ clocks channel 3 with 1.79MHz
+|+------- clocks channel 1 with 1.79MHz
++-------- makes the 17 bit poly-conter into a 9 bit poly-counter
+
+--------------------------------------------------------------------------------
+
+ 	 	7	6	5	4	3	2	1	0
+0 (R)	POT0	Potentiometer 0 input
+0 (W)	AUDF1	Frequency
+1 (R)	POT1	Potentiometer 1 input
+1 (W)	AUDC1	Sound Distortion	On/Off	Volume Control
+2 (R)	POT2	Potentiometer 2 input
+2 (W)	AUDF2	Frequency
+3 (R)	POT3	Potentiometer 3 input
+3 (W)	AUDC2	Sound Distortion	On/Off	Volume Control
+4 (R)	POT4	Potentiometer 4 input
+4 (W)	AUDF3	Frequency
+5 (R)	POT5	Potentiometer 5 input
+5 (W)	AUDC3	Sound Distortion	On/Off	Volume Control
+6 (R)	POT6	Potentiometer 6 input
+6 (W)	AUDF4	Frequency
+7 (R)	POT7	Potentiometer 7 input
+7 (W)	AUDC4	Sound Distortion	On/Off	Volume Control
+
+ 	 	7	6	5	4	3	2	1	0
+8 (R)	POTST	POT7	POT6	POT5	POT4	POT3	POT2	POT1	POT0
+8 (W)	AUDCTL	Distortion
+  			C1 clock
+			   	C3 clock
+					C1+C2	C3+C4	C1 filter
+								C2 filter
+									base clock
+9 (R)	KBCODE	CTRL	SHIFT	Key code
+9 (W)	STIMER	unused
+A (R)	RANDOM	Random generator value
+A (W)	SKSTRES	unused
+B (W)	POTGO	unused
+D (R)	SERIN	Data
+D (W)	SEROUT	Data
+E (R)	IRQST	BREAK	KBCODE	SERIN	SEROUT	EOT	Timer 4	Timer 2	Timer 1
+E (W)	IRQEN	BREAK	KBCODE	SERIN	SEROUT	EOT	Timer 4	Timer 2	Timer 1
+F (R)	SKSTAT	Frame E	KB E	SERIN E	SER E	SHIFT	KEY	SER Busy
+  		      	   	      	    				unused
+F (W)	SKCTL	SPACE	Serial speed		Two Tone
+  	  			       			Fast Pot	
+  			       		    		     Key scan	Debounce

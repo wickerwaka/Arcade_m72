@@ -1,0 +1,5 @@
+
+verilator/.vs/*
+verilator/x64/*
+verilator/Release/*
+verilator/Debug/*
