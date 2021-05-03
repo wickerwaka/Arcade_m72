@@ -34,10 +34,12 @@ module top(
    wire [3:0] led/*verilator public_flat*/;
    reg [7:0]  trakball/*verilator public_flat*/;
    reg [7:0]  joystick/*verilator public_flat*/;
-   reg [7:0]  sw1/*verilator public_flat*/;
-   reg [7:0]  sw2/*verilator public_flat*/;
    reg [9:0]  playerinput/*verilator public_flat*/;  
-   
+
+   // Hardcode default switches
+   reg [7:0]  sw1 = { 1'b0, 1'b0,2'b0,2'b0,2'b0 };
+   reg [7:0]  sw2 = 8'h02;
+
    // Convert 3bpp output to 8bpp
    assign VGA_R = {rgb[2:0],rgb[2:0],rgb[2:1]};
    assign VGA_G = {rgb[5:3],rgb[5:3],rgb[5:4]};
@@ -58,6 +60,8 @@ module top(
    assign joystick[7:4] = { ~inputs[0],~inputs[1],~inputs[2],~inputs[3] }; // right, left, down, up 1
    assign joystick[3:0] = { ~inputs[0],~inputs[1],~inputs[2],~inputs[3] }; // right, left, down, up 2
    assign pause = inputs[11];       // pause
+   
+
 
    centipede uut(
 		 .clk_12mhz(clk_12),

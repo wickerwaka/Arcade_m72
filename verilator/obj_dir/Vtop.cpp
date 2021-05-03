@@ -119,6 +119,8 @@ void Vtop::_initial__TOP__1(Vtop__Syms* __restrict vlSymsp) {
     vlTOPp->top__DOT__uut__DOT__pokey__DOT__p = 0U;
     vlTOPp->top__DOT__uut__DOT__hs_cs_ram = 1U;
     vlTOPp->top__DOT__uut__DOT__pf_ce4_n = 0U;
+    vlTOPp->top__DOT__sw1 = 0U;
+    vlTOPp->top__DOT__sw2 = 2U;
     vlTOPp->top__DOT__uut__DOT__pokey__DOT__pokey__DOT__pot_done = 0U;
     vlTOPp->top__DOT__uut__DOT__hs_ram__DOT__j = 0U;
     while (VL_GTS_III(1,32,32, 0x40U, vlTOPp->top__DOT__uut__DOT__hs_ram__DOT__j)) {
@@ -372,6 +374,8 @@ void Vtop::_initial__TOP__1(Vtop__Syms* __restrict vlSymsp) {
     vlTOPp->top__DOT__uut__DOT__pf_ram__DOT__ce_b = vlTOPp->top__DOT__uut__DOT__pf_ce4_n;
     vlTOPp->top__DOT__uut__DOT__pf_ram__DOT__ram_read_b 
         = (0xfU != (IData)(vlTOPp->top__DOT__uut__DOT__pf_ce4_n));
+    vlTOPp->top__DOT__uut__DOT__sw1_i = vlTOPp->top__DOT__sw1;
+    vlTOPp->top__DOT__uut__DOT__sw2_i = vlTOPp->top__DOT__sw2;
 }
 
 void Vtop::_settle__TOP__2(Vtop__Syms* __restrict vlSymsp) {
@@ -380,8 +384,6 @@ void Vtop::_settle__TOP__2(Vtop__Syms* __restrict vlSymsp) {
     // Body
     vlTOPp->top__DOT__uut__DOT__p6502__DOT__bc6502__DOT__nmi = 0U;
     vlTOPp->top__DOT__uut__DOT__trakball_i = vlTOPp->top__DOT__trakball;
-    vlTOPp->top__DOT__uut__DOT__sw1_i = vlTOPp->top__DOT__sw1;
-    vlTOPp->top__DOT__uut__DOT__sw2_i = vlTOPp->top__DOT__sw2;
     vlTOPp->top__DOT__uut__DOT__hs_ram__DOT__rclk = vlTOPp->top__DOT__uut__DOT__hs_clk;
     vlTOPp->top__DOT__uut__DOT__pokey__DOT__pokey__DOT__i = 1U;
     vlTOPp->top__DOT__uut__DOT__pokey__DOT__pokey__DOT__i = 2U;
@@ -1332,6 +1334,8 @@ void Vtop::_settle__TOP__2(Vtop__Syms* __restrict vlSymsp) {
     vlTOPp->top__DOT__uut__DOT__pf_ram__DOT__ce_b = vlTOPp->top__DOT__uut__DOT__pf_ce4_n;
     vlTOPp->top__DOT__uut__DOT__pf_ram__DOT__ram_read_b 
         = (0xfU != (IData)(vlTOPp->top__DOT__uut__DOT__pf_ce4_n));
+    vlTOPp->top__DOT__uut__DOT__sw1_i = vlTOPp->top__DOT__sw1;
+    vlTOPp->top__DOT__uut__DOT__sw2_i = vlTOPp->top__DOT__sw2;
     vlTOPp->top__DOT__uut__DOT__pokey__DOT__pokey__DOT__rst_i 
         = vlTOPp->top__DOT__uut__DOT__pokey__DOT__reset;
     vlTOPp->top__DOT__uut__DOT__p6502__DOT__reset_n 
@@ -9830,9 +9834,9 @@ void Vtop::_ctor_var_reset() {
     top__DOT__led = VL_RAND_RESET_I(4);
     top__DOT__trakball = VL_RAND_RESET_I(8);
     top__DOT__joystick = VL_RAND_RESET_I(8);
+    top__DOT__playerinput = VL_RAND_RESET_I(10);
     top__DOT__sw1 = VL_RAND_RESET_I(8);
     top__DOT__sw2 = VL_RAND_RESET_I(8);
-    top__DOT__playerinput = VL_RAND_RESET_I(10);
     top__DOT____Vcellout__uut__led_o = VL_RAND_RESET_I(4);
     top__DOT__uut__DOT__clk_12mhz = VL_RAND_RESET_I(1);
     top__DOT__uut__DOT__reset = VL_RAND_RESET_I(1);

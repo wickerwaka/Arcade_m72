@@ -38,8 +38,6 @@ Vtop__Syms::Vtop__Syms(Vtop* topp, const char* namep)
         __Vscope_top.varInsert(__Vfinal,"led", &(TOPp->top__DOT__led), VLVT_UINT8,VLVD_NODIR|VLVF_PUB_RW,1 ,3,0);
         __Vscope_top.varInsert(__Vfinal,"playerinput", &(TOPp->top__DOT__playerinput), VLVT_UINT16,VLVD_NODIR|VLVF_PUB_RW,1 ,9,0);
         __Vscope_top.varInsert(__Vfinal,"reset", &(TOPp->top__DOT__reset), VLVT_UINT8,VLVD_NODIR|VLVF_PUB_RW,0);
-        __Vscope_top.varInsert(__Vfinal,"sw1", &(TOPp->top__DOT__sw1), VLVT_UINT8,VLVD_NODIR|VLVF_PUB_RW,1 ,7,0);
-        __Vscope_top.varInsert(__Vfinal,"sw2", &(TOPp->top__DOT__sw2), VLVT_UINT8,VLVD_NODIR|VLVF_PUB_RW,1 ,7,0);
         __Vscope_top.varInsert(__Vfinal,"trakball", &(TOPp->top__DOT__trakball), VLVT_UINT8,VLVD_NODIR|VLVF_PUB_RW,1 ,7,0);
     }
 }
