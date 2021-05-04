@@ -1,4 +1,3 @@
-#pragma once
 #include "sim_bus.h"
 #include "sim_console.h"
 #include "verilated_heavy.h"
@@ -9,7 +8,6 @@
 #endif
 
 static DebugConsole console;
-VerilatedModule* top;
 
 FILE* ioctl_file = NULL;
 int ioctl_next_addr = 0x0;
