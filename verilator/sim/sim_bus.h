@@ -22,6 +22,6 @@ public:
 	void AfterEval(void);
 	void ioctl_download_setfile(char* file, int index);
 
-	SimBus::SimBus(DebugConsole c);
-	SimBus::~SimBus();
+	SimBus(DebugConsole c);
+	~SimBus();
 };
