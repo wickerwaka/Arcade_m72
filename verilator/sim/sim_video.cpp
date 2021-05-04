@@ -1,4 +1,3 @@
-#pragma once
 
 #include "sim_video.h"
 
@@ -10,6 +9,7 @@
 #include <stdio.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
+#include <sys/time.h>
 #else
 #define WIN32
 #include "imgui_impl_win32.h"
@@ -28,8 +28,14 @@ bool output_vflip = false;
 
 uint32_t* output_ptr = NULL;
 unsigned int output_size;
+#ifdef WIN32
 HWND hwnd;
 WNDCLASSEX wc;
+#else
+SDL_Window* window;
+SDL_GLContext gl_context;
+GLuint tex;
+#endif
 ImTextureID texture_id;
 ImGuiIO io;
 
@@ -42,10 +48,16 @@ bool last_hblank;
 bool last_vblank;
 
 // Statistics
+#ifdef WIN32
 SYSTEMTIME actualtime;
 LONG time_ms;
 LONG old_time;
 LONG stats_frameTime;
+#else
+double time_ms;
+double old_time;
+double stats_frameTime;
+#endif
 float stats_fps;
 int stats_xMax;
 int stats_yMax;
@@ -218,7 +230,6 @@ int SimVideo::Initialise(const char* windowTitle) {
 		console.AddLog("Error: %s\n", SDL_GetError());
 		return -1;
 	}
-	top = new Vtop();
 
 	// Setup window
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
@@ -227,8 +238,8 @@ int SimVideo::Initialise(const char* windowTitle) {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
 	SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-	SDL_Window* window = SDL_CreateWindow("Dear ImGui SDL2+OpenGL example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
-	SDL_GLContext gl_context = SDL_GL_CreateContext(window);
+	window = SDL_CreateWindow("Dear ImGui SDL2+OpenGL example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
+	gl_context = SDL_GL_CreateContext(window);
 	SDL_GL_MakeCurrent(window, gl_context);
 	SDL_GL_SetSwapInterval(0);
 #endif
@@ -237,7 +248,7 @@ int SimVideo::Initialise(const char* windowTitle) {
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	io = ImGui::GetIO(); 
+	io = ImGui::GetIO();
 	(void)io;
 
 	// Setup Dear ImGui style
@@ -307,14 +318,13 @@ int SimVideo::Initialise(const char* windowTitle) {
 	}
 #else
 	// the texture should match the GPU so it doesn't have to copy
-	GLuint tex;
 	glGenTextures(1, &tex);
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, VGA_WIDTH, VGA_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, disp_ptr);
-	ImTextureID my_tex_id = (ImTextureID)tex;
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, output_width, output_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, output_ptr);
+	texture_id = (ImTextureID)tex;
 #endif
 	return 0;
 }
@@ -336,7 +346,7 @@ void SimVideo::UpdateTexture() {
 	g_pSwapChain->Present(0, 0); // Present without vsync
 #else
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, VGA_WIDTH, VGA_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, disp_ptr);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, output_width, output_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, output_ptr);
 
 	// Rendering
 	ImGui::Render();
@@ -447,11 +457,18 @@ void SimVideo::Clock(bool hblank, bool vblank, uint32_t colour) {
 		count_frame++;
 		count_line = 0;
 
+#ifdef WIN32
 		GetSystemTime(&actualtime);
 		time_ms = (actualtime.wSecond * 1000) + actualtime.wMilliseconds;
+#else
+		struct tv;
+		gettimeofday(&tv, NULL);
+		time_ms = (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000; // convert tv_sec & tv_usec to millisecond
+#endif
 		stats_frameTime = time_ms - old_time;
 		old_time = time_ms;
 		stats_fps = 1000.0 / stats_frameTime;
+
 	}
 	last_hblank = hblank;
 	last_vblank = vblank;
