@@ -33,7 +33,7 @@ public:
 
 	ImTextureID texture_id;
 
-	SimVideo::SimVideo(int width, int height, int rotate);
+	SimVideo(int width, int height, int rotate);
 	~SimVideo();
 	void UpdateTexture();
 	void CleanUp();

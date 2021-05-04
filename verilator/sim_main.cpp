@@ -11,11 +11,11 @@
 #include <dinput.h>
 #endif
 
-#include <sim_console.h>
-#include <sim_bus.h>
-#include <sim_video.h>
-#include <sim_input.h>
-#include <sim_clock.h>
+#include "sim_console.h"
+#include "sim_bus.h"
+#include "sim_video.h"
+#include "sim_input.h"
+#include "sim_clock.h"
 
 #include "../imgui/imgui_memory_editor.h"
 
