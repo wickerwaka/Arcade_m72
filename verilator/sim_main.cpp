@@ -123,11 +123,6 @@ int verilate() {
 	return 0;
 }
 
-// Test function to trigger HPS download
-void start_load_image() {
-	bus.ioctl_download_setfile("test\\bird.bin", 0);
-}
-
 int main(int argc, char** argv, char** env) {
 
 	// Create core and initialise
@@ -142,7 +137,7 @@ int main(int argc, char** argv, char** env) {
 	bus.ioctl_wait = &top->ioctl_wait;
 	bus.ioctl_download = &top->ioctl_download;
 	bus.ioctl_upload = &top->ioctl_upload;
-	bus.ioctl_write = &top->ioctl_write;
+	bus.ioctl_wr = &top->ioctl_wr;
 	bus.ioctl_dout = &top->ioctl_dout;
 	bus.ioctl_din = &top->ioctl_din;
 
@@ -163,7 +158,7 @@ int main(int argc, char** argv, char** env) {
 	// Setup video output
 	if (video.Initialise(windowTitle) == 1) { return 1; }
 
-	//start_load_image();
+	bus.QueueDownload("bird.bin", 0);
 
 
 #ifdef WIN32

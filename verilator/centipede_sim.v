@@ -18,7 +18,7 @@ module top(
    
    input        ioctl_download,
    input        ioctl_upload,
-   input        ioctl_write,
+   input        ioctl_wr,
    input [24:0] ioctl_addr,
    input [7:0]  ioctl_dout,
    input [7:0]  ioctl_din,   
@@ -84,7 +84,7 @@ module top(
        .pause(pause),
        .dn_addr(ioctl_addr[15:0]),
        .dn_data(ioctl_din),
-       .dn_wr(ioctl_write),
+       .dn_wr(ioctl_wr),
        .hs_address(7'b0),
 		 .hs_data_in(8'b0),
 		 .hs_data_out(),

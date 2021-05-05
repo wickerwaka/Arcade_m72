@@ -1,3 +1,8 @@
+#pragma once
+#include <iostream>
+#include <queue>
+#include <string>
+
 #include "sim_bus.h"
 #include "sim_console.h"
 #include "verilated_heavy.h"
@@ -7,10 +12,13 @@
 #define WIN32
 #endif
 
+
 static DebugConsole console;
+VerilatedModule* top;
 
 FILE* ioctl_file = NULL;
-int ioctl_next_addr = 0x0;
+int ioctl_next_addr = -1;
+int ioctl_last_index = -1;
 
 IData* ioctl_addr = NULL;
 CData* ioctl_index = NULL;
@@ -21,21 +29,42 @@ CData* ioctl_wr = NULL;
 CData* ioctl_dout = NULL;
 CData* ioctl_din = NULL;
 
-void SimBus::ioctl_download_setfile(char* file, int index)
-{
-	ioctl_next_addr = -1;
-	*ioctl_addr = ioctl_next_addr;
-	*ioctl_index = index;
-	ioctl_file = fopen(file, "rb");
-	if (!ioctl_file) {
-		console.AddLog("error opening %s\n", file);
-	}
+std::queue<SimBus_DownloadChunk> downloadQueue;
+
+void SimBus::QueueDownload(std::string file, int index) {
+	SimBus_DownloadChunk chunk = SimBus_DownloadChunk(file, index);
+	downloadQueue.push(chunk);
 }
+
 int nextchar = 0;
 void SimBus::BeforeEval()
 {
+	// If no file is open and there is a download queued
+	if (!ioctl_file && downloadQueue.size() > 0) {
+
+		// Get chunk from queue
+		currentDownload = downloadQueue.front();
+		downloadQueue.pop();
+
+		// If last index differs from this one then reset the addresses
+		if (currentDownload.index != *ioctl_index) { ioctl_next_addr = -1; }
+
+		// Set address and index
+		*ioctl_addr = ioctl_next_addr;
+		*ioctl_index = currentDownload.index;
+
+		// Open file
+		ioctl_file = fopen(currentDownload.file.c_str(), "rb");
+		if (!ioctl_file) {
+			console.AddLog("Cannot open file for download %s\n", currentDownload.file.c_str());
+		}
+		else {
+			console.AddLog("Starting download: %s %d", currentDownload.file.c_str(), ioctl_next_addr, ioctl_next_addr);
+		}
+	}
+
 	if (ioctl_file) {
-		console.AddLog("ioctl_download addr %x  ioctl_wait %x", *ioctl_addr, *ioctl_wait);
+		//console.AddLog("ioctl_download addr %x  ioctl_wait %x", *ioctl_addr, *ioctl_wait);
 		if (*ioctl_wait == 0) {
 			*ioctl_download = 1;
 			*ioctl_wr = 1;
@@ -44,13 +73,13 @@ void SimBus::BeforeEval()
 				ioctl_file = NULL;
 				*ioctl_download = 0;
 				*ioctl_wr = 0;
-				console.AddLog("finished upload\n");
+				console.AddLog("ioctl_download complete %d", ioctl_next_addr);
 			}
 			if (ioctl_file) {
 				int curchar = fgetc(ioctl_file);
 				if (feof(ioctl_file) == 0) {
 					nextchar = curchar;
-					console.AddLog("ioctl_download: dout %x \n", *ioctl_dout);
+					//console.AddLog("ioctl_download: dout %x \n", *ioctl_dout);
 					ioctl_next_addr++;
 				}
 			}
@@ -67,7 +96,7 @@ void SimBus::AfterEval()
 	*ioctl_addr = ioctl_next_addr;
 	*ioctl_dout = (unsigned char)nextchar;
 	if (ioctl_file) {
-		console.AddLog("ioctl_download %x wr %x dl %x\n", *ioctl_addr, *ioctl_wr, *ioctl_download);
+		//	console.AddLog("ioctl_download %x wr %x dl %x\n", *ioctl_addr, *ioctl_wr, *ioctl_download);
 	}
 }
 
@@ -81,6 +110,7 @@ SimBus::SimBus(DebugConsole c) {
 	ioctl_upload = NULL;
 	ioctl_wr = NULL;
 	ioctl_dout = NULL;
+	ioctl_din = NULL;
 }
 
 SimBus::~SimBus() {
