@@ -1,6 +1,7 @@
 #pragma once
 #include <queue>
 #include "verilated_heavy.h"
+#include "sim_console.h"
 
 
 #ifndef _MSC_VER
@@ -39,10 +40,10 @@ public:
 
 	void BeforeEval(void);
 	void AfterEval(void);
-	void SimBus::QueueDownload(std::string file, int index);
+	void QueueDownload(std::string file, int index);
 
-	SimBus::SimBus(DebugConsole c);
-	SimBus::~SimBus();
+	SimBus(DebugConsole c);
+	~SimBus();
 
 private:
 	std::queue<SimBus_DownloadChunk> downloadQueue;

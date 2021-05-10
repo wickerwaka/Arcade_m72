@@ -227,7 +227,7 @@ int SimVideo::Initialise(const char* windowTitle) {
 	// Setup SDL
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
 	{
-		console.AddLog("Error: %s\n", SDL_GetError());
+		printf("Error: %s\n", SDL_GetError());
 		return -1;
 	}
 
@@ -461,13 +461,13 @@ void SimVideo::Clock(bool hblank, bool vblank, uint32_t colour) {
 		GetSystemTime(&actualtime);
 		time_ms = (actualtime.wSecond * 1000) + actualtime.wMilliseconds;
 #else
-		struct tv;
+		struct timeval tv;
 		gettimeofday(&tv, NULL);
 		time_ms = (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000; // convert tv_sec & tv_usec to millisecond
 #endif
 		stats_frameTime = time_ms - old_time;
 		old_time = time_ms;
-		stats_fps = 1000.0 / stats_frameTime;
+		stats_fps = (float)(1000.0 / stats_frameTime);
 
 	}
 	last_hblank = hblank;

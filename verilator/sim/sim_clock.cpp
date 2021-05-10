@@ -1,7 +1,5 @@
-#pragma once
 #include "sim_clock.h"
 #include <string>
-
 
 //bool clk, old;
 //int ratio, count;
