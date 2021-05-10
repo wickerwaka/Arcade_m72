@@ -13,7 +13,6 @@
 
 
 static DebugConsole console;
-VerilatedModule* top;
 
 FILE* ioctl_file = NULL;
 int ioctl_next_addr = -1;

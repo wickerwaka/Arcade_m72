@@ -1,5 +1,3 @@
-#pragma once
-
 #include "sim_input.h"
 
 #include <string>
@@ -12,9 +10,10 @@
 //#define DIRECTINPUT_VERSION 0x0800
 IDirectInput8* m_directInput;
 IDirectInputDevice8* m_keyboard;
-unsigned char m_keyboardState[256];
 #endif
 #include <vector>
+
+unsigned char m_keyboardState[256];
 
 // - Core inputs
 //#define VSW1    top->top__DOT__sw1
@@ -32,6 +31,7 @@ int mappings[16];
 
 bool ReadKeyboard()
 {
+#ifdef WIN32
 	HRESULT result;
 
 	// Read the keyboard device.
@@ -42,11 +42,13 @@ bool ReadKeyboard()
 		if ((result == DIERR_INPUTLOST) || (result == DIERR_NOTACQUIRED)) { m_keyboard->Acquire(); }
 		else { return false; }
 	}
+#endif
 	return true;
 }
 
 int SimInput::Initialise() {
 
+#ifdef WIN32
 	m_directInput = 0;
 	m_keyboard = 0;
 	HRESULT result;
@@ -62,7 +64,7 @@ int SimInput::Initialise() {
 	// Now acquire the keyboard.
 	result = m_keyboard->Acquire();
 	if (FAILED(result)) { return false; }
-
+#endif
 	return 0;
 }
 
@@ -81,10 +83,13 @@ void SimInput::SetMapping(int index, int code) {
 }
 
 void SimInput::CleanUp() {
+	
+#ifdef WIN32
 	// Release keyboard
 	if (m_keyboard) { m_keyboard->Unacquire(); m_keyboard->Release(); m_keyboard = 0; }
 	// Release direct input
 	if (m_directInput) { m_directInput->Release(); m_directInput = 0; }
+#endif
 }
 
 SimInput::SimInput(int count)

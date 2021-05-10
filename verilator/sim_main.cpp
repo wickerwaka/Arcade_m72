@@ -128,8 +128,11 @@ int main(int argc, char** argv, char** env) {
 	// Create core and initialise
 	top = new Vtop();
 	Verilated::commandArgs(argc, argv);
+
+#ifdef WIN32
 	// Attach debug console to the verilated code
 	Verilated::setDebug(console);
+#endif
 
 	// Attach bus
 	bus.ioctl_addr = &top->ioctl_addr;

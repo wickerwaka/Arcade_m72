@@ -1,12 +1,11 @@
 #pragma once
-#pragma comment(lib, "dinput8.lib")
-#pragma comment(lib, "dxguid.lib")
-#include <vector>
-
 #ifndef _MSC_VER
 #else
 #define WIN32
+#pragma comment(lib, "dinput8.lib")
+#pragma comment(lib, "dxguid.lib")
 #endif
+#include <vector>
 
 struct SimInput {
 public:
