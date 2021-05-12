@@ -30,9 +30,6 @@ unsigned char m_keyboardState[256];
 //void playinput_assert(int s) { PLAYERINPUT &= ~(1 << s); }
 //void playinput_deassert(int s) { PLAYERINPUT |= (1 << s); }
 
-//int inputCount = 0;
-//bool inputs[16];
-//int mappings[16];
 
 bool ReadKeyboard()
 {
