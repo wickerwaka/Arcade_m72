@@ -3,6 +3,10 @@
 #include <string>
 
 #ifndef _MSC_VER
+#include <SDL2/SDL.h>
+
+ const Uint8 *m_keyboardState;
+
 
 #else
 #define WIN32
@@ -10,10 +14,11 @@
 //#define DIRECTINPUT_VERSION 0x0800
 IDirectInput8* m_directInput;
 IDirectInputDevice8* m_keyboard;
+unsigned char m_keyboardState[256];
 #endif
+
 #include <vector>
 
-unsigned char m_keyboardState[256];
 
 // - Core inputs
 //#define VSW1    top->top__DOT__sw1
@@ -25,9 +30,9 @@ unsigned char m_keyboardState[256];
 //void playinput_assert(int s) { PLAYERINPUT &= ~(1 << s); }
 //void playinput_deassert(int s) { PLAYERINPUT |= (1 << s); }
 
-int inputCount = 0;
-bool inputs[16];
-int mappings[16];
+//int inputCount = 0;
+//bool inputs[16];
+//int mappings[16];
 
 bool ReadKeyboard()
 {
@@ -42,7 +47,10 @@ bool ReadKeyboard()
 		if ((result == DIERR_INPUTLOST) || (result == DIERR_NOTACQUIRED)) { m_keyboard->Acquire(); }
 		else { return false; }
 	}
+#else
+   m_keyboardState= SDL_GetKeyboardState(NULL);
 #endif
+
 	return true;
 }
 
@@ -74,12 +82,20 @@ void SimInput::Read() {
 
 	// Collect inputs
 	for (int i = 0; i < inputCount; i++) {
+#ifdef WIN32
 		inputs[i] = m_keyboardState[mappings[i]] & 0x80;
+#else
+		inputs[i] = m_keyboardState[mappings[i]];
+#endif
 	}
 }
 
 void SimInput::SetMapping(int index, int code) {
-	mappings[index] = code;
+printf("index %d code %d\n",index,code);
+       if (code < 256)
+		mappings[index] = code;
+	else
+		mappings[index] = 0;
 }
 
 void SimInput::CleanUp() {
