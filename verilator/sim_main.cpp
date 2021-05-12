@@ -161,6 +161,7 @@ int main(int argc, char** argv, char** env) {
 #else
 	input.SetMapping(input_up, SDL_SCANCODE_UP);
 	input.SetMapping(input_right, SDL_SCANCODE_RIGHT);
+	input.SetMapping(input_down, SDL_SCANCODE_DOWN);
 	input.SetMapping(input_left, SDL_SCANCODE_LEFT);
 	input.SetMapping(input_fire1, SDL_SCANCODE_SPACE);
 	input.SetMapping(input_start_1, SDL_SCANCODE_1);
