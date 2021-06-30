@@ -50,7 +50,7 @@ module hs_ram(
 	   if(cs1 == 1'b1 && c1 == 1'b1 && c2 == 1'b0)
 	   begin
 	   	d <= mem[a];
-		$display("hs_read %b > %b", a, mem[a]);
+		// $display("hs_read %b > %b", a, mem[a]);
 	   end
    end
 

@@ -72,15 +72,14 @@ double sc_time_stamp() {	// Called by $time in Verilog.
 	return main_time;
 }
 
-int clockSpeed = 24; // This is not used, just a reminder for the dividers below
-SimClock clk_sys(1); // 12mhz
-SimClock clk_pix(2); // 6mhz
+SimClock clk_48(1); // 48mhz
+SimClock clk_12(4); // 12mhz
 
 void resetSim() {
 	main_time = 0;
 	top->reset = 1;
-	clk_sys.Reset();
-	clk_pix.Reset();
+	clk_48.Reset();
+	clk_12.Reset();
 }
 
 int verilate() {
@@ -93,23 +92,24 @@ int verilate() {
 		if (main_time == initialReset) { top->reset = 0; }
 
 		// Clock dividers
-		clk_sys.Tick();
-		clk_pix.Tick();
+		clk_48.Tick();
+		clk_12.Tick();
 
 		// Set system clock in core
-		top->clk_12 = clk_sys.clk;
+		top->clk_48 = clk_48.clk;
+		top->clk_12 = clk_12.clk;
 
 		// Output pixels on rising edge of pixel clock
-		if (clk_pix.clk && !clk_pix.old) {
+		if (clk_48.IsRising() && top->top__DOT__ce_pix) {
 			uint32_t colour = 0xFF000000 | top->VGA_B << 16 | top->VGA_G << 8 | top->VGA_R;
-			video.Clock(top->VGA_HB, top->VGA_VB, colour);
+			video.Clock(top->VGA_HB, top->VGA_VB, top->VGA_HS, top->VGA_VS, colour);
 		}
 
 		// Simulate both edges of system clock
-		if (clk_sys.clk != clk_sys.old) {
-			if (clk_sys.clk) { bus.BeforeEval(); }
+		if (clk_48.clk != clk_48.old) {
+			if (clk_48.clk) { bus.BeforeEval(); }
 			top->eval();
-			if (clk_sys.clk) { bus.AfterEval(); }
+			if (clk_48.clk) { bus.AfterEval(); }
 		}
 
 		main_time++;
@@ -174,7 +174,7 @@ int main(int argc, char** argv, char** env) {
 	// Setup video output
 	if (video.Initialise(windowTitle) == 1) { return 1; }
 
-	bus.QueueDownload("bird.bin", 0);
+	//bus.QueueDownload("bird.bin", 0);
 
 
 #ifdef WIN32
@@ -235,7 +235,7 @@ int main(int argc, char** argv, char** env) {
 		ImGui::Text("main_time: %d frame_count: %d sim FPS: %f", main_time, video.count_frame, video.stats_fps); 
 
 		// Draw VGA output
-		float m = 3.0;
+		float m = 2.0;
 		ImGui::Image(video.texture_id, ImVec2(video.output_width * m, video.output_height * m));
 		ImGui::End();
 

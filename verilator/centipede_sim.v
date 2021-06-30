@@ -3,6 +3,7 @@
 
 module top(
 
+   input clk_48 /*verilator public_flat*/,
    input clk_12 /*verilator public_flat*/,
    input reset/*verilator public_flat*/,
    input [11:0]  inputs/*verilator public_flat*/,
@@ -62,6 +63,13 @@ module top(
    assign pause = inputs[11];       // pause
    
 
+   reg ce_pix;
+   always @(posedge clk_48) begin
+      reg old_clk;
+      
+      old_clk <= clk_12;
+      ce_pix <= old_clk & ~clk_12;
+   end
 
    centipede uut(
 		 .clk_12mhz(clk_12),

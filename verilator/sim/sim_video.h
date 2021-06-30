@@ -33,11 +33,13 @@ public:
 
 	ImTextureID texture_id;
 
+	bool frameChanged;
+
 	SimVideo(int width, int height, int rotate);
 	~SimVideo();
 	void UpdateTexture();
 	void CleanUp();
 	void StartFrame();
-	void Clock(bool hblank, bool vblank, uint32_t colour);
+	void Clock(bool hblank, bool vblank, bool hsync, bool vsync, uint32_t colour);
 	int Initialise(const char* windowTitle);
 };

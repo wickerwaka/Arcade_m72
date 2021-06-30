@@ -4,10 +4,8 @@
 
 #ifndef _MSC_VER
 #include <SDL2/SDL.h>
-
- const Uint8 *m_keyboardState;
-
-
+const Uint8* m_keyboardState;
+const Uint8* m_keyboardState_last;
 #else
 #define WIN32
 #include <dinput.h>
@@ -15,21 +13,10 @@
 IDirectInput8* m_directInput;
 IDirectInputDevice8* m_keyboard;
 unsigned char m_keyboardState[256];
+unsigned char m_keyboardState_last[256];
 #endif
 
 #include <vector>
-
-
-// - Core inputs
-//#define VSW1    top->top__DOT__sw1
-//#define VSW2    top->top__DOT__sw2
-//#define PLAYERINPUT top->top__DOT__playerinput
-//#define JS      top->top__DOT__joystick
-//void js_assert(int s) { JS &= ~(1 << s); }
-//void js_deassert(int s) { JS |= 1 << s; }
-//void playinput_assert(int s) { PLAYERINPUT &= ~(1 << s); }
-//void playinput_deassert(int s) { PLAYERINPUT |= (1 << s); }
-
 
 bool ReadKeyboard()
 {
@@ -45,7 +32,7 @@ bool ReadKeyboard()
 		else { return false; }
 	}
 #else
-   m_keyboardState= SDL_GetKeyboardState(NULL);
+	m_keyboardState = SDL_GetKeyboardState(NULL);
 #endif
 
 	return true;
@@ -85,18 +72,27 @@ void SimInput::Read() {
 		inputs[i] = m_keyboardState[mappings[i]];
 #endif
 	}
+
+#ifdef WIN32
+	for (unsigned char k = 0; k < 256; k++) {
+		m_keyboardState_last[k] = m_keyboardState[k];
+	}
+#else
+		m_keyboardState_last = m_keyboardState;
+#endif
+
 }
 
 void SimInput::SetMapping(int index, int code) {
-printf("index %d code %d\n",index,code);
-       if (code < 256)
+	printf("index %d code %d\n", index, code);
+	if (code < 256)
 		mappings[index] = code;
 	else
 		mappings[index] = 0;
 }
 
 void SimInput::CleanUp() {
-	
+
 #ifdef WIN32
 	// Release keyboard
 	if (m_keyboard) { m_keyboard->Unacquire(); m_keyboard->Release(); m_keyboard = 0; }

@@ -235,19 +235,14 @@ wire m_coin   = m_start1 | m_start2;
 wire m_test = ~status[13];
 wire m_slam = 1'b1;//generate Noise
 
-
-
 wire hblank, vblank;
 wire hs, vs;
-wire [2:0] r,g;
-wire [2:0] b;
-wire ce_vid = clk_6_o;
+wire [2:0] r,g,b;
 wire [8:0] rgb;
 
 reg ce_pix;
 always @(posedge clk_48) begin
 	reg old_clk;
-	
 	old_clk <= clk_sys;
 	ce_pix <= old_clk & ~clk_sys;
 end

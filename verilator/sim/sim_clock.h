@@ -10,6 +10,7 @@ public:
 	~SimClock();
 	void Tick();
 	void Reset();
+	bool IsRising();
 
 private:
 	int ratio, count;

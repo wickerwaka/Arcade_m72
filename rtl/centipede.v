@@ -432,9 +432,7 @@ module centipede(
 
    // Address Decoder
    assign write_n = ~(phi2 & ~rw_n);
-
    assign brw_n = ~rw_n;
-   
    assign rom_n = brw_n | ~ab[13];
 
    //   1111 11
@@ -475,10 +473,12 @@ module centipede(
    assign pf_n =    adecode[1];
    assign ram0_n =  adecode[0];
    
+   wire C5 = ~ab[9]|adecode[5];
+
    assign {ea_read_n, ea_ctrl_n, ea_addr_n} =
-						({~ab[9]|adecode[5], ab[8:7]} == 3'b000) ? 3'b110 :
-						({~ab[9]|adecode[5], ab[8:7]} == 3'b001) ? 3'b101 :
-						({~ab[9]|adecode[5], ab[8:7]} == 3'b010) ? 3'b011 :
+						({C5, ab[8:7]} == 3'b000) ? 3'b110 :
+						({C5, ab[8:7]} == 3'b001) ? 3'b101 :
+						({C5, ab[8:7]} == 3'b010) ? 3'b011 :
 						3'b111;
 
    assign pframrd_n = pf_n | brw_n;
@@ -824,13 +824,13 @@ module centipede(
    begin
      hs_addr <= ab[5:0];
      hs_data <= db_out[7:0];
-     $display("hs_addr %b hs_data %b",ab[5:0],db_out[7:0]);
+    //  $display("hs_addr %b hs_data %b",ab[5:0],db_out[7:0]);
    end
 
    always @(posedge ea_ctrl_clk)
    begin
-    if(db_out[3:0] != 4'b0000)
-      $display("db_out %b", db_out[3:0]);
+    // if(db_out[3:0] != 4'b0000)
+    //   $display("db_out %b", db_out[3:0]);
     hs_clk <= db_out[0];
     hs_c1 <= ~db_out[1];
     hs_c2 <= db_out[2];
