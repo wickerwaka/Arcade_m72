@@ -239,9 +239,9 @@ int main(int argc, char** argv, char** env) {
 		ImGui::Image(video.texture_id, ImVec2(video.output_width * m, video.output_height * m));
 		ImGui::End();
 
-		ImGui::Begin("RAM Editor");
-		memoryEditor_hs.DrawContents(top->top__DOT__uut__DOT__hs_ram__DOT__mem, 64, 0);
-		ImGui::End();
+		//ImGui::Begin("RAM Editor");
+		//memoryEditor_hs.DrawContents(top->top__DOT__uut__DOT__hs_ram__DOT__mem, 64, 0);
+		//ImGui::End();
 
 		video.UpdateTexture();
 

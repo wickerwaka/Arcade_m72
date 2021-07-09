@@ -9,7 +9,6 @@
 #define WIN32
 #endif
 
-
 struct SimBus_DownloadChunk {
 public:
 	std::string file;

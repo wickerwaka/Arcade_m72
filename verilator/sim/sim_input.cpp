@@ -74,11 +74,16 @@ void SimInput::Read() {
 	}
 
 #ifdef WIN32
-	for (unsigned char k = 0; k < 256; k++) {
+	for (unsigned char k = 0; k < 255; k++) {
+		if (m_keyboardState_last[k] != m_keyboardState[k]) {
+			bool ext = 0;
+			SimInput_PS2KeyEvent evt = SimInput_PS2KeyEvent(k, m_keyboardState[k], ext);
+			keyEvents.push(evt);
+		}
 		m_keyboardState_last[k] = m_keyboardState[k];
 	}
 #else
-		m_keyboardState_last = m_keyboardState;
+	m_keyboardState_last = m_keyboardState;
 #endif
 
 }
@@ -99,6 +104,23 @@ void SimInput::CleanUp() {
 	// Release direct input
 	if (m_directInput) { m_directInput->Release(); m_directInput = 0; }
 #endif
+}
+
+void SimInput::BeforeEval()
+{
+	if (keyEventTimer == 0) {
+		if (keyEvents.size() > 0) {
+			// Get chunk from queue
+			SimInput_PS2KeyEvent evt = keyEvents.front();
+			keyEvents.pop();
+
+
+
+		}
+	}
+	else {
+		keyEventTimer--;
+	}
 }
 
 SimInput::SimInput(int count)

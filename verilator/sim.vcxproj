@@ -43,6 +43,7 @@
     <ClCompile>
       <AdditionalIncludeDirectories>.\;..\..;sim\;sim\imgui;sim\vinc;sim\vinc\vltstd;obj_dir;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <WarningLevel>Level4</WarningLevel>
+      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -52,6 +53,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>.\;..\..;sim\;sim\imgui;sim\vinc;sim\vinc\vltstd;obj_dir;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -75,6 +77,7 @@
     <ClCompile Include="obj_dir\Vtop.cpp" />
     <ClCompile Include="obj_dir\Vtop__Dpi.cpp" />
     <ClCompile Include="obj_dir\Vtop__Syms.cpp" />
+    <ClCompile Include="obj_dir\Vtop__Slow.cpp" />
     <ClCompile Include="sim_main.cpp" />
   </ItemGroup>
   <ItemGroup>
