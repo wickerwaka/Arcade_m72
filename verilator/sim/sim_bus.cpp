@@ -71,7 +71,7 @@ void SimBus::BeforeEval()
 	}
 
 	if (ioctl_file) {
-		console.AddLog("ioctl_download addr %x  ioctl_wait %x", *ioctl_addr, *ioctl_wait);
+		//console.AddLog("ioctl_download addr %x  ioctl_wait %x", *ioctl_addr, *ioctl_wait);
 		if (*ioctl_wait == 0) {
 			*ioctl_download = 1;
 			*ioctl_wr = 1;

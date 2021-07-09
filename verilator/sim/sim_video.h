@@ -33,8 +33,6 @@ public:
 
 	ImTextureID texture_id;
 
-	bool frameChanged;
-
 	SimVideo(int width, int height, int rotate);
 	~SimVideo();
 	void UpdateTexture();

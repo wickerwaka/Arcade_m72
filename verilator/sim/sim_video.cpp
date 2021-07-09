@@ -420,7 +420,6 @@ void SimVideo::Clock(bool hblank, bool vblank, bool hsync, bool vsync, uint32_t 
 	if (last_vsync && !vsync) {
 		count_frame++;
 		count_line = 0;
-		frameChanged = 1;
 #ifdef WIN32
 		GetSystemTime(&actualtime);
 		time_ms = (actualtime.wSecond * 1000) + actualtime.wMilliseconds;
