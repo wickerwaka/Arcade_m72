@@ -513,7 +513,8 @@ typedef unsigned long long vluint64_t;  ///< 64-bit unsigned type
 #ifdef __MINGW32__
 # define VL_LOCALTIME_R(timep, tmp) localtime_s((tmp), (timep))
 #elif defined(_MSC_VER)
-# define VL_LOCALTIME_R(timep, tmp) localtime_c((tmp), (timep))
+//# define VL_LOCALTIME_R(timep, tmp) localtime_c((tmp), (timep))
+# define VL_LOCALTIME_R(timep, tmp) localtime_s((tmp), (timep))
 #else
 # define VL_LOCALTIME_R(timep, tmp) localtime_r((timep), (tmp))
 #endif

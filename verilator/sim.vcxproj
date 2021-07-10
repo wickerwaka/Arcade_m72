@@ -78,6 +78,9 @@
     <ClCompile Include="obj_dir\Vtop__Dpi.cpp" />
     <ClCompile Include="obj_dir\Vtop__Syms.cpp" />
     <ClCompile Include="obj_dir\Vtop__Slow.cpp" />
+    <ClCompile Include="obj_dir\Vtop__Trace.cpp" />
+    <ClCompile Include="obj_dir\Vtop__Trace__Slow.cpp" />
+    <ClCompile Include="sim\vinc\verilated_vcd_c.cpp" />
     <ClCompile Include="sim_main.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -63,9 +63,9 @@ void DebugConsole::ClearLog()
 	Items.clear();
 }
 
-void DebugConsole::Draw(const char* title, bool* p_open)
+void DebugConsole::Draw(const char* title, bool* p_open, ImVec2 size)
 {
-	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+	ImGui::SetWindowSize(title, size, ImGuiCond_Once);
 	if (!ImGui::Begin(title, p_open))
 	{
 		ImGui::End();
