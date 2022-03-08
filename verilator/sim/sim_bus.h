@@ -21,7 +21,9 @@ public:
 	}
 
 	SimBus_DownloadChunk(std::string file, int index) {
-		SimBus_DownloadChunk(file, index, false);
+		this->restart = false;
+		this->file = std::string(file);
+		this->index = index;
 	}
 	SimBus_DownloadChunk(std::string file, int index, bool restart) {
 		this->restart = restart;

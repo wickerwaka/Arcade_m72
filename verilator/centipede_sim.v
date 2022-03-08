@@ -16,6 +16,9 @@ module top(
    output VGA_VS,
    output VGA_HB,
    output VGA_VB,
+
+   output [15:0] AUDIO_L,
+   output [15:0] AUDIO_R,
    
    input        ioctl_download,
    input        ioctl_upload,
@@ -30,8 +33,8 @@ module top(
    
    // Core inputs/outputs
    wire       pause;
-   wire [8:0] rgb;
    wire [7:0] audio;
+   wire [8:0] rgb;
    wire [3:0] led/*verilator public_flat*/;
    reg [7:0]  trakball/*verilator public_flat*/;
    reg [7:0]  joystick/*verilator public_flat*/;
@@ -61,7 +64,10 @@ module top(
    assign joystick[7:4] = { ~inputs[0],~inputs[1],~inputs[2],~inputs[3] }; // right, left, down, up 1
    assign joystick[3:0] = { ~inputs[0],~inputs[1],~inputs[2],~inputs[3] }; // right, left, down, up 2
    assign pause = inputs[11];       // pause
-   
+
+   // MAP OUTPUTS
+   assign AUDIO_L = {audio,audio};
+   assign AUDIO_R = AUDIO_L;
 
    reg ce_pix;
    always @(posedge clk_48) begin

@@ -12,14 +12,16 @@
 
 struct SimInput_PS2KeyEvent {
 public:
-	unsigned char code;
+	char code;
 	bool pressed;
 	bool extended;
+	unsigned int mapped;
 
-	SimInput_PS2KeyEvent(unsigned char code, bool pressed, bool extended) {
+	SimInput_PS2KeyEvent(char code, bool pressed, bool extended, unsigned int mapped) {
 		this->code = code;
 		this->pressed = pressed;
 		this->extended = extended;
+		this->mapped = mapped;
 	}
 };
 
@@ -33,7 +35,7 @@ public:
 	SData* ps2_key = NULL;
 	std::queue<SimInput_PS2KeyEvent> keyEvents;
 	unsigned int keyEventTimer = 0;
-	unsigned int keyEventWait = 500;
+	unsigned int keyEventWait = 50000;
 
 #define NONE         0xFF
 #define LCTRL        0x000100
@@ -58,6 +60,6 @@ public:
 	void CleanUp();
 	void SetMapping(int index, int code);
 	void BeforeEval(void);
-	SimInput(int count);
+	SimInput(int count, DebugConsole c);
 	~SimInput();
 };

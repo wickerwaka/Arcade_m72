@@ -25,6 +25,7 @@ int output_width = 512;
 int output_height = 512;
 int output_rotate = 0;
 bool output_vflip = false;
+bool output_usevsync = 1;
 
 uint32_t* output_ptr = NULL;
 unsigned int output_size;
@@ -48,6 +49,7 @@ bool last_hblank;
 bool last_vblank;
 bool last_hsync;
 bool last_vsync;
+bool frame_ready = 1;
 
 // Statistics
 #ifdef WIN32
@@ -308,12 +310,12 @@ int SimVideo::Initialise(const char* windowTitle) {
 	{
 		D3D11_SAMPLER_DESC desc;
 		ZeroMemory(&desc, sizeof(desc));
-		desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		desc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
 		desc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
 		desc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
 		desc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
 		desc.MipLODBias = 0.f;
-		desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+		desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
 		desc.MinLOD = 0.f;
 		desc.MaxLOD = 0.f;
 		g_pd3dDevice->CreateSamplerState(&desc, &g_pFontSampler);
@@ -337,19 +339,19 @@ void SimVideo::UpdateTexture() {
 	// Update the texture!
 	// D3D11_USAGE_DEFAULT MUST be set in the texture description (somewhere above) for this to work.
 	// (D3D11_USAGE_DYNAMIC is for use with map / unmap.) ElectronAsh.
-
-	g_pd3dDeviceContext->UpdateSubresource(texture, 0, NULL, output_ptr, output_width * 4, 0);
-
+	if (frame_ready) {
+		g_pd3dDeviceContext->UpdateSubresource(texture, 0, NULL, output_ptr, output_width * 4, 0);
+	}
 	// Rendering
 	ImGui::Render();
 	g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, NULL);
 	g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, (float*)&clear_color);
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-	g_pSwapChain->Present(1, 0); // Present without vsync
+	g_pSwapChain->Present(output_usevsync, 0); // Present without vsync
 #else
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, output_width, output_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, output_ptr);
-
+	if (frame_ready) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, output_width, output_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, output_ptr);
+	}
 	// Rendering
 	ImGui::Render();
 	glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
@@ -360,7 +362,7 @@ void SimVideo::UpdateTexture() {
 	SDL_GL_SwapWindow(window);
 #endif
 
-
+	frame_ready = 0;
 
 }
 
@@ -418,6 +420,7 @@ void SimVideo::Clock(bool hblank, bool vblank, bool hsync, bool vsync, uint32_t 
 
 	// Reset on rising vsync
 	if (last_vsync && !vsync) {
+		frame_ready = 1;
 		count_frame++;
 		count_line = 0;
 #ifdef WIN32

@@ -2,3 +2,5 @@
 * text=auto
 # Convert linux scripts to LF permanently
 *.sh text eol=lf
+*.define text eol=lf
+Makefile text eol=lf

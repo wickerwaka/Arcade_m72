@@ -6,6 +6,7 @@ class SimClock
 public:
 	bool clk, old;
 
+	SimClock();
 	SimClock(int r);
 	~SimClock();
 	void Tick();

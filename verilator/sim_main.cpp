@@ -2,6 +2,7 @@
 #include "Vtop.h"
 
 #include "imgui.h"
+#include "implot.h"
 #ifndef _MSC_VER
 #include <stdio.h>
 #include <SDL.h>
@@ -14,11 +15,26 @@
 #include "sim_console.h"
 #include "sim_bus.h"
 #include "sim_video.h"
+#include "sim_audio.h"
 #include "sim_input.h"
 #include "sim_clock.h"
 
 #include "../imgui/imgui_memory_editor.h"
 #include <verilated_vcd_c.h> //VCD Trace
+#include "../imgui/ImGuiFileDialog.h"
+
+#include <iostream>
+#include <fstream>
+using namespace std;
+
+// Simulation control
+// ------------------
+int initialReset = 48;
+bool run_enable = 1;
+int batchSize = 150000;
+bool single_step = 0;
+bool multi_step = 0;
+int multi_step_amount = 1024;
 
 // Debug GUI 
 // ---------
@@ -27,9 +43,10 @@ const char* windowTitle_Control = "Simulation control";
 const char* windowTitle_DebugLog = "Debug log";
 const char* windowTitle_Video = "VGA output";
 const char* windowTitle_Trace = "Trace/VCD control";
+const char* windowTitle_Audio = "Audio output";
 bool showDebugLog = true;
 DebugConsole console;
-MemoryEditor memoryEditor_hs;
+MemoryEditor mem_edit;
 
 // HPS emulator
 // ------------
@@ -37,7 +54,7 @@ SimBus bus(console);
 
 // Input handling
 // --------------
-SimInput input(12);
+SimInput input(12, console);
 const int input_right = 0;
 const int input_left = 1;
 const int input_down = 2;
@@ -53,30 +70,24 @@ const int input_pause = 11;
 
 // Video
 // -----
-#define VGA_WIDTH 240
-#define VGA_HEIGHT 257
+#define VGA_WIDTH 320
+#define VGA_HEIGHT 240
 #define VGA_ROTATE -1  // 90 degrees anti-clockwise
-#define VGA_SCALE_X 2.0
-#define VGA_SCALE_Y 2.0
+#define VGA_SCALE_X vga_scale
+#define VGA_SCALE_Y vga_scale
 SimVideo video(VGA_WIDTH, VGA_HEIGHT, VGA_ROTATE);
-
-// Simulation control
-// ------------------
-int initialReset = 48;
-bool run_enable = 1;
-int batchSize = 25000000 / 100;
-bool single_step = 0;
-bool multi_step = 0;
-int multi_step_amount = 1024;
+float vga_scale = 2.5;
 
 // Verilog module
 // --------------
 Vtop* top = NULL;
+
 vluint64_t main_time = 0;	// Current simulation time.
 double sc_time_stamp() {	// Called by $time in Verilog.
 	return main_time;
 }
 
+int clk_sys_freq = 48000000;
 SimClock clk_48(1); // 48mhz
 SimClock clk_12(4); // 12mhz
 
@@ -105,6 +116,12 @@ void restore_model(const char* filenamep) {
 	os >> *top;
 }
 
+// Audio
+// -----
+#define DISABLE_AUDIO
+#ifndef DISABLE_AUDIO
+SimAudio audio(clk_sys_freq, true);
+#endif
 
 // Reset simulation variables and clocks
 void resetSim() {
@@ -127,9 +144,34 @@ int verilate() {
 		clk_48.Tick();
 		clk_12.Tick();
 
-		// Set system clock in core
+		// Set clocks in core
 		top->clk_48 = clk_48.clk;
 		top->clk_12 = clk_12.clk;
+
+		// Simulate both edges of fastest clock
+		if (clk_48.clk != clk_48.old) {
+
+			// System clock simulates HPS functions
+			if (clk_12.clk) {
+				input.BeforeEval();
+				bus.BeforeEval();
+			}
+			top->eval();
+			if (Trace) {
+				if (!tfp->isOpen()) tfp->open(Trace_File);
+				tfp->dump(main_time); //Trace
+			}
+
+			// System clock simulates HPS functions
+			if (clk_12.clk) { bus.AfterEval(); }
+		}
+
+#ifndef DISABLE_AUDIO
+		if (clk_48.IsRising())
+		{
+			audio.Clock(top->AUDIO_L, top->AUDIO_R);
+		}
+#endif
 
 		// Output pixels on rising edge of pixel clock
 		if (clk_48.IsRising() && top->top__DOT__ce_pix) {
@@ -137,22 +179,12 @@ int verilate() {
 			video.Clock(top->VGA_HB, top->VGA_VB, top->VGA_HS, top->VGA_VS, colour);
 		}
 
-		// Simulate both edges of system clock
-		if (clk_48.clk != clk_48.old) {
-			if (clk_48.clk) { bus.BeforeEval(); }
-			top->eval();
-			if (Trace) {
-				if (!tfp->isOpen()) tfp->open(Trace_File);
-				tfp->dump(main_time); //Trace
-			}
-
-			if (clk_48.clk) { bus.AfterEval(); }
+		if (clk_48.IsRising()) {
+			main_time++;
 		}
-
-		main_time++;
-
 		return 1;
 	}
+
 	// Stop verilating and cleanup
 	top->final();
 	delete top;
@@ -186,6 +218,10 @@ int main(int argc, char** argv, char** env) {
 	bus.ioctl_dout = &top->ioctl_dout;
 	bus.ioctl_din = &top->ioctl_din;
 
+#ifndef DISABLE_AUDIO
+	audio.Initialise();
+#endif
+
 	// Set up input module
 	input.Initialise();
 #ifdef WIN32
@@ -216,8 +252,7 @@ int main(int argc, char** argv, char** env) {
 	// Setup video output
 	if (video.Initialise(windowTitle) == 1) { return 1; }
 
-	// Queue ROMs for download here if required
-	//bus.QueueDownload("bird.bin", 0);
+	bus.QueueDownload("./test.bin", 0, true);
 
 
 #ifdef WIN32
@@ -269,12 +304,17 @@ int main(int argc, char** argv, char** env) {
 		if (ImGui::Button("Multi Step")) { run_enable = 0; multi_step = 1; }
 		//ImGui::SameLine();
 		ImGui::SliderInt("Multi step amount", &multi_step_amount, 8, 1024);
+
 		ImGui::End();
 
 		// Debug log window
 		console.Draw(windowTitle_DebugLog, &showDebugLog, ImVec2(500, 700));
-		ImGui::SetWindowPos(windowTitle_DebugLog, ImVec2(0,160), ImGuiCond_Once);
+		ImGui::SetWindowPos(windowTitle_DebugLog, ImVec2(0, 160), ImGuiCond_Once);
 
+		// Memory debug
+		//ImGui::Begin("PGROM Editor");
+		//mem_edit.DrawContents(top->top__DOT__uut__DOT__rom__DOT__mem, 32768, 0);
+		//ImGui::End();
 
 		// Trace/VCD window
 		ImGui::Begin(windowTitle_Trace);
@@ -284,13 +324,13 @@ int main(int argc, char** argv, char** env) {
 		if (ImGui::Button("Start VCD Export")) { Trace = 1; } ImGui::SameLine();
 		if (ImGui::Button("Stop VCD Export")) { Trace = 0; } ImGui::SameLine();
 		if (ImGui::Button("Flush VCD Export")) { tfp->flush(); } ImGui::SameLine();
-		ImGui::Checkbox("Export VCD", &Trace); 
+		ImGui::Checkbox("Export VCD", &Trace);
 
 		ImGui::PushItemWidth(120);
 		if (ImGui::InputInt("Deep Level", &iTrace_Deep_tmp, 1, 100, ImGuiInputTextFlags_EnterReturnsTrue))
 		{
 			top->trace(tfp, iTrace_Deep_tmp);
-		} 
+		}
 
 		if (ImGui::InputText("TraceFilename", Trace_File_tmp, IM_ARRAYSIZE(Trace_File), ImGuiInputTextFlags_EnterReturnsTrue))
 		{
@@ -308,26 +348,65 @@ int main(int argc, char** argv, char** env) {
 			strcpy(SaveModel_File, SaveModel_File_tmp); //TODO onChange Close and open new trace file
 		}
 		ImGui::End();
+		int windowX = 550;
+		int windowWidth = (VGA_WIDTH * VGA_SCALE_X) + 24;
+		int windowHeight = (VGA_HEIGHT * VGA_SCALE_Y) + 90;
 
 		// Video window
 		ImGui::Begin(windowTitle_Video);
-		ImGui::SetWindowPos(windowTitle_Video, ImVec2(550, 0), ImGuiCond_Once);
-		ImGui::SetWindowSize(windowTitle_Video, ImVec2((VGA_WIDTH * VGA_SCALE_X)+16, (VGA_HEIGHT * VGA_SCALE_Y) + 90), ImGuiCond_Once);
+		ImGui::SetWindowPos(windowTitle_Video, ImVec2(windowX, 0), ImGuiCond_Once);
+		ImGui::SetWindowSize(windowTitle_Video, ImVec2(windowWidth, windowHeight), ImGuiCond_Once);
 
+		ImGui::SetNextItemWidth(400);
+		ImGui::SliderFloat("Zoom", &vga_scale, 1, 8); ImGui::SameLine();
+		ImGui::SetNextItemWidth(200);
 		ImGui::SliderInt("Rotate", &video.output_rotate, -1, 1); ImGui::SameLine();
 		ImGui::Checkbox("Flip V", &video.output_vflip);
 		ImGui::Text("main_time: %d frame_count: %d sim FPS: %f", main_time, video.count_frame, video.stats_fps);
-		ImGui::Text("pixel: %d line: %d", video.count_pixel, video.count_line);
+		//ImGui::Text("pixel: %06d line: %03d", video.count_pixel, video.count_line);
 
 		// Draw VGA output
 		ImGui::Image(video.texture_id, ImVec2(video.output_width * VGA_SCALE_X, video.output_height * VGA_SCALE_Y));
 		ImGui::End();
 
-		//ImGui::Begin("RAM Editor");
-		//memoryEditor_hs.DrawContents(top->top__DOT__uut__DOT__hs_ram__DOT__mem, 64, 0);
-		//ImGui::End();
+
+#ifndef DISABLE_AUDIO
+
+		ImGui::Begin(windowTitle_Audio);
+		ImGui::SetWindowPos(windowTitle_Audio, ImVec2(windowX, windowHeight), ImGuiCond_Once);
+		ImGui::SetWindowSize(windowTitle_Audio, ImVec2(windowWidth, 250), ImGuiCond_Once);
+
+
+		//float vol_l = ((signed short)(top->AUDIO_L) / 256.0f) / 256.0f;
+		//float vol_r = ((signed short)(top->AUDIO_R) / 256.0f) / 256.0f;
+		//ImGui::ProgressBar(vol_l + 0.5f, ImVec2(200, 16), 0); ImGui::SameLine();
+		//ImGui::ProgressBar(vol_r + 0.5f, ImVec2(200, 16), 0);
+
+		int ticksPerSec = (24000000 / 60);
+		if (run_enable) {
+			audio.CollectDebug((signed short)top->AUDIO_L, (signed short)top->AUDIO_R);
+		}
+		int channelWidth = (windowWidth / 2) - 16;
+		ImPlot::CreateContext();
+		if (ImPlot::BeginPlot("Audio - L", ImVec2(channelWidth, 220), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+			ImPlot::SetupAxes("T", "A", ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickMarks, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickMarks);
+			ImPlot::SetupAxesLimits(0, 1, -1, 1, ImPlotCond_Once);
+			ImPlot::PlotStairs("", audio.debug_positions, audio.debug_wave_l, audio.debug_max_samples, audio.debug_pos);
+			ImPlot::EndPlot();
+		}
+		ImGui::SameLine();
+		if (ImPlot::BeginPlot("Audio - R", ImVec2(channelWidth, 220), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+			ImPlot::SetupAxes("T", "A", ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickMarks, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickMarks);
+			ImPlot::SetupAxesLimits(0, 1, -1, 1, ImPlotCond_Once);
+			ImPlot::PlotStairs("", audio.debug_positions, audio.debug_wave_r, audio.debug_max_samples, audio.debug_pos);
+			ImPlot::EndPlot();
+		}
+		ImPlot::DestroyContext();
+		ImGui::End();
+#endif
 
 		video.UpdateTexture();
+
 
 		// Pass inputs to sim
 		top->inputs = 0;
@@ -351,6 +430,9 @@ int main(int argc, char** argv, char** env) {
 	// Clean up before exit
 	// --------------------
 
+#ifndef DISABLE_AUDIO
+	audio.CleanUp();
+#endif 
 	video.CleanUp();
 	input.CleanUp();
 

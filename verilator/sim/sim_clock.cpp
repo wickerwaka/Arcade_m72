@@ -1,6 +1,13 @@
 #include "sim_clock.h"
 #include <string>
 
+SimClock::SimClock() {
+	ratio = 1;
+	count = 0;
+	clk = false;
+	old = false;
+}
+
 SimClock::SimClock(int r) {
 	ratio = r;
 	count = 0;

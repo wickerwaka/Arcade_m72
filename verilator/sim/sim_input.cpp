@@ -19,8 +19,12 @@ unsigned char m_keyboardState_last[256];
 #endif
 
 #include <vector>
+#include "sim_console.h"
+
+static DebugConsole console;
+
 #ifdef WIN32
-static const int ev2ps2[] =
+static const unsigned int ev2ps2[] =
 {
 	NONE, //0   KEY_RESERVED
 	0x76, //1   KEY_ESC
@@ -222,55 +226,55 @@ static const int ev2ps2[] =
 	NONE, //197 ???
 	NONE, //198 ???
 	NONE, //199 ???
-	NONE, //200 KEY_PLAYCD
-	NONE, //201 KEY_PAUSECD
-	NONE, //202 KEY_PROG3
-	NONE, //203 KEY_PROG4
-	NONE, //204 KEY_DASHBOARD
-	NONE, //205 KEY_SUSPEND
-	NONE, //206 KEY_CLOSE
-	NONE, //207 KEY_PLAY
-	NONE, //208 KEY_FASTFORWARD
-	NONE, //209 KEY_BASSBOOST
-	NONE, //210 KEY_PRINT
-	NONE, //211 KEY_HP
-	NONE, //212 KEY_CAMERA
-	NONE, //213 KEY_SOUND
-	NONE, //214 KEY_QUESTION
-	NONE, //215 KEY_EMAIL
-	NONE, //216 KEY_CHAT
-	NONE, //217 KEY_SEARCH
-	NONE, //218 KEY_CONNECT
-	NONE, //219 KEY_FINANCE
-	NONE, //220 KEY_SPORT
-	NONE, //221 KEY_SHOP
-	NONE, //222 KEY_ALTERASE
-	NONE, //223 KEY_CANCEL
-	NONE, //224 KEY_BRIGHT_DOWN
-	NONE, //225 KEY_BRIGHT_UP
-		NONE, //226 KEY_MEDIA
-		NONE, //227 KEY_SWITCHVIDEO
-		NONE, //228 KEY_DILLUMTOGGLE
-		NONE, //229 KEY_DILLUMDOWN
-		NONE, //230 KEY_DILLUMUP
-		NONE, //231 KEY_SEND
-		NONE, //232 KEY_REPLY
-		NONE, //233 KEY_FORWARDMAIL
-		NONE, //234 KEY_SAVE
-		NONE, //235 KEY_DOCUMENTS
-		NONE, //236 KEY_BATTERY
-		NONE, //237 KEY_BLUETOOTH
-		NONE, //238 KEY_WLAN
-		NONE, //239 KEY_UWB
-		NONE, //240 KEY_UNKNOWN
-		NONE, //241 KEY_VIDEO_NEXT
-		NONE, //242 KEY_VIDEO_PREV
-		NONE, //243 KEY_BRIGHT_CYCLE
-		NONE, //244 KEY_BRIGHT_AUTO
-		NONE, //245 KEY_DISPLAY_OFF
-		NONE, //246 KEY_WWAN
-		NONE, //247 KEY_RFKILL
-		NONE, //248 KEY_MICMUTE
+	EXT | 0x75, //200 KEY_UP
+	NONE, //201 ???
+	NONE, //202 ???
+	EXT | 0x6b, //203 KEY_LEFT
+	NONE, //204 ???
+	EXT | 0x74, //205 KEY_RIGHT
+	NONE, //206 ???
+	NONE, //207 ???
+	EXT | 0x72, //208 KEY_DOWN
+	NONE, //209 ???
+	NONE, //210 ???
+	NONE, //211 ???
+	NONE, //212 ???
+	NONE, //213 ???
+	NONE, //214 ???
+	NONE, //215 ???
+	NONE, //216 ???
+	NONE, //217 ???
+	NONE, //218 ???
+	NONE, //219 ???
+	NONE, //220 ???
+	NONE, //221 ???
+	NONE, //222 ???
+	NONE, //223 ???
+	NONE, //224 ???
+	NONE, //225 ???
+	NONE, //226 ???
+	NONE, //227 ???
+	NONE, //228 ???
+	NONE, //229 ???
+	NONE, //230 ???
+	NONE, //231 ???
+	NONE, //232 ???
+	NONE, //233 ???
+	NONE, //234 ???
+	NONE, //235 ???
+	NONE, //236 ???
+	NONE, //237 ???
+	NONE, //238 ???
+	NONE, //239 ???
+	NONE, //240 ???
+	NONE, //241 ???
+	NONE, //242 ???
+	NONE, //243 ???
+	NONE, //244 ???
+	NONE, //245 ???
+	NONE, //246 ???
+	NONE, //247 ???
+	NONE, //248 ???
 	NONE, //249 ???
 	NONE, //250 ???
 	NONE, //251 ???
@@ -532,8 +536,8 @@ bool ReadKeyboard()
 	}
 #else
 	m_keyboardState = SDL_GetKeyboardState(&m_keyboardStateCount);
-	if (!m_keyboardState_last) m_keyboardState_last = (Uint8 *)calloc(m_keyboardStateCount,sizeof(Uint8));
-       ////fprintf(stderr,"count: %d\n",m_keyboardStateCount);
+	if (!m_keyboardState_last) m_keyboardState_last = (Uint8*)calloc(m_keyboardStateCount, sizeof(Uint8));
+	////fprintf(stderr,"count: %d\n",m_keyboardStateCount);
 #endif
 
 	return true;
@@ -575,11 +579,12 @@ void SimInput::Read() {
 	}
 
 #ifdef WIN32
-	for (unsigned char k = 0; k < 128; k++) {
-		
+	for (unsigned char k = 0; k < 220; k++) {
+
 		if (m_keyboardState_last[k] != m_keyboardState[k]) {
-			bool ext = 0;
-			SimInput_PS2KeyEvent evt = SimInput_PS2KeyEvent(k, m_keyboardState[k], ext);
+			unsigned int ext = ev2ps2[k] & EXT;
+			//fprintf(stderr, "ev2ps2[k] = %x  ext = %x  temp = %x\n", ev2ps2[k], ext, EXT | 0x6b);
+			SimInput_PS2KeyEvent evt = SimInput_PS2KeyEvent(k, m_keyboardState[k], ext, ev2ps2[k]);
 			keyEvents.push(evt);
 		}
 		m_keyboardState_last[k] = m_keyboardState[k];
@@ -615,30 +620,27 @@ void SimInput::CleanUp() {
 #endif
 }
 
-unsigned ps2_key_temp;
+unsigned int ps2_key_temp;
 bool ps2_clock = 1;
 
 
 void SimInput::BeforeEval()
 {
+	if (ps2_key == NULL) {
+		return;
+	}
 	if (keyEventTimer == 0) {
-		
+
 		if (keyEvents.size() > 0) {
 			// Get chunk from queue
 			SimInput_PS2KeyEvent evt = keyEvents.front();
-//fprintf(stderr,"evt = %x\n",evt.code);
 			keyEvents.pop();
-
-			ps2_key_temp = ev2ps2[evt.code];
-
-			//if (evt.extended) { ps2_key_temp |= (1UL << 8); }
+			ps2_key_temp = evt.mapped;
+			if (evt.extended) { ps2_key_temp |= (1UL << 8); }
 			if (evt.pressed) { ps2_key_temp |= (1UL << 9); }
 			if (ps2_clock) { ps2_key_temp |= (1UL << 10); }
-
 			ps2_clock = !ps2_clock;
-
 			*ps2_key = ps2_key_temp;
-
 			keyEventTimer = keyEventWait;
 		}
 	}
@@ -647,9 +649,10 @@ void SimInput::BeforeEval()
 	}
 }
 
-SimInput::SimInput(int count)
+SimInput::SimInput(int count, DebugConsole c)
 {
 	inputCount = count;
+	console = c;
 }
 
 SimInput::~SimInput()
