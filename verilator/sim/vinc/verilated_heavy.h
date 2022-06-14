@@ -813,7 +813,7 @@ private:
 public:
     using const_iterator = typename Array::const_iterator;
 
-private:
+//private:
     // MEMBERS
     Array m_array;  // Contents of the packed array
 

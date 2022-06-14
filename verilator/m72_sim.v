@@ -65,10 +65,6 @@ module top(
    assign joystick[3:0] = { ~inputs[0],~inputs[1],~inputs[2],~inputs[3] }; // right, left, down, up 2
    assign pause = inputs[11];       // pause
 
-   // MAP OUTPUTS
-   assign AUDIO_L = {audio,audio};
-   assign AUDIO_R = AUDIO_L;
-
    reg ce_pix;
    always @(posedge clk_48) begin
       reg old_clk;
@@ -77,33 +73,24 @@ module top(
       ce_pix <= old_clk & ~clk_12;
    end
 
-   centipede uut(
-		 .clk_12mhz(clk_12),
- 		 .reset(reset),
-		 .playerinput_i(playerinput),
-		 .trakball_i(trakball),
-		 .joystick_i(joystick),
-		 .sw1_i(sw1),
-		 .sw2_i(sw2),
-		 .led_o(led),
-		 .rgb_o(rgb),
-		 .sync_o(),
-		 .hsync_o(VGA_HS),
-		 .vsync_o(VGA_VS),
-		 .hblank_o(VGA_HB),
-		 .vblank_o(VGA_VB),
-		 .audio_o(audio),
-		 .clk_6mhz_o(),
-       .flip_o(),
-       .pause(pause),
-       .dn_addr(ioctl_addr[15:0]),
-       .dn_data(ioctl_din),
-       .dn_wr(ioctl_wr),
-       .hs_address(7'b0),
-		 .hs_data_in(8'b0),
-		 .hs_data_out(),
-		 .hs_write(1'b0),
-		 .hs_access(1'b0)
-       );
+   m72 m72(
+      .clock(clk_12),
+      .pixel_clock(clk_48),
+      .reset_n(!reset),
+      .z80_reset_n(!reset),
+      .VGA_HS(VGA_HS),
+      .VGA_VS(VGA_VS),
+      .VGA_HB(VGA_HB),
+      .VGA_VB(VGA_VB),
+      .VGA_R(VGA_R),
+      .VGA_G(VGA_G),
+      .VGA_B(VGA_B),
+      .AUDIO_L(AUDIO_L),
+      .AUDIO_R(AUDIO_R),
+
+      .ioctl_wr(ioctl_wr),
+      .ioctl_addr(ioctl_addr),
+      .ioctl_dout(ioctl_dout)
+      );
    
 endmodule

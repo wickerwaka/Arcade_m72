@@ -1,0 +1,51 @@
+16MH, 16ML
+Pages: 19
+16Mhz clocks
+
+DMACK
+Pages: 19
+8Mhz clock
+
+S24H
+Pages: 19, 22, 
+
+DCKL
+Pages: 19
+
+/CLD
+Pages: 19
+
+
+/INTCS
+Pages: 15
+
+/ISET
+Pages: 19
+Asserted when writing to KNA70H015. Writes hline, HINT will be raised when this line - 128 is reached
+
+NL
+Pages: 16
+Flip display
+
+KNA91H014
+Pages: 14, 24
+IC: 9, 79
+Palette chip
+
+KNA65006-17
+Pages: 24
+IC: 62
+Something to do with sprites. DA0, DA1, DB0, DB1 input buses
+
+KNA70H016
+Pages: 20
+IC: 35
+DMA controller and sprite address generation?
+
+KNA70H015
+Pages: 19
+IC: 76
+Video counter?
+
+
+

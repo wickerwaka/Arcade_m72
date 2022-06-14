@@ -4,14 +4,19 @@ verilator \
 -O3 --x-assign fast --x-initial fast --noassert \
 --converge-limit 6000 \
 -Wno-UNOPTFLAT \
---top-module top centipede_sim.v \
-../rtl/centipede.v \
-../rtl/p6502.v \
-../rtl/pokey.v \
-../rtl/ram.v \
-../rtl/rom.v \
-../rtl/color_ram.v \
-../rtl/pf_rom.v \
-../rtl/pf_ram_dp.v \
-../rtl/vprom.v \
-../rtl/hs_ram.v
+-Wno-TIMESCALEMOD \
+-Wno-COMBDLY \
+-Wno-BLKANDNBLK \
+-Wno-CASEX \
+-Wno-WIDTH \
+-Wno-CASEINCOMPLETE \
+-I../zet-master/cores/zet/rtl/altera \
+-I../zet-master/cores/zet/rtl \
+-I../tv80 \
+--top-module top m72_sim.v \
+../rtl/m72.v \
+../rtl/dpramv.sv \
+../rtl/kna6034201.v \
+../rtl/shifter_ls166.v \
+../rtl/rom.sv \
+../rtl/pal.sv
