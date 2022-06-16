@@ -26,6 +26,12 @@ module m72 (
 	input [7:0]  ioctl_dout
 );
 
+/* Global signals from schematics */
+wire M_IO = ~cpu_iorq; // high = memory low = IO
+wire IOWR = cpu_iorq & cpu_we; // IO Write
+wire IORD = cpu_iorq & ~cpu_we; // IO Read
+
+
 reg [8:0] h_count;
 reg [8:0] v_count;
 
@@ -57,8 +63,8 @@ wire cpu_nmi_ack;
 wire cpu_int_rq;
 wire cpu_int_ack;
 
+// add 1 cycle wait to acknowledge
 reg wb_ack_wait = 0;
-
 always @(posedge clock or negedge reset_n)
 begin
 	if (!reset_n) begin
@@ -102,7 +108,26 @@ wire [15:0] rom_ram_data = rom0_ce ? { dout_h0, dout_l0 } :
 							rom1_ce ? { dout_h1, dout_l1 } :
 							ram_cs2 ? { dout_hr, dout_lr } : 16'hffff;
 
-wire [15:0] cpu_din = ls245_en ? rom_ram_data : 16'hf0f0;
+reg [15:0] pic;
+
+wire [15:0] cpu_din =
+	ls245_en ? rom_ram_data :
+	SW ? 16'hffff : // TODO player inputs
+	FLAG ? 16'hffff : // TODO test, start and tnsl
+	DSW ? 16'hffff : // TODO DIP Switches
+	INTCS ? pic : // TODO PIC
+	16'hffff;
+
+always @(posedge clock or negedge reset_n) begin
+	if (~reset_n) begin
+		pic <= 0;
+	end else begin
+		if (cpu_we) begin
+			if (INTCS)
+				pic <= cpu_dout;
+		end
+	end
+end
 
 pal_3a pal_3a(
 	.a(cpu_addr),
@@ -116,6 +141,23 @@ pal_3a pal_3a(
 	.ram_cs2(ram_cs2),
 	.s(),
 	.n_s()
+);
+
+wire SW, FLAG, DSW, SND, FSET, DMA_ON, ISET, INTCS;
+
+pal_4d pal_3d(
+    .M_IO(M_IO),
+    .IOWR(IOWR),
+    .IORD(IORD),
+	.A(cpu_addr),
+	.SW(SW),
+	.FLAG(FLAG),
+	.DSW(DSW),
+	.SND(SND),
+    .FSET(FSET),
+    .DMA_ON(DMA_ON),
+    .ISET(ISET),
+    .INTCS(INTCS)
 );
 
 download_selector download_selector(
@@ -179,7 +221,7 @@ dpramv #(.widthad_a(13)) ram_h
 	.clock_a(clock),
 	.address_a(cpu_addr[13:1]),
 	.q_a(dout_hr),
-	.wren_a(ram_cs2 & cpu_we & cpu_sel[1]),
+	.wren_a(ram_cs2 & cpu_we & cpu_sel[1] & ls245_en),
 	.data_a(cpu_dout[15:8]),
 
 	.clock_b(clock),
@@ -194,7 +236,7 @@ dpramv #(.widthad_a(13)) ram_l
 	.clock_a(clock),
 	.address_a(cpu_addr[13:1]),
 	.q_a(dout_lr),
-	.wren_a(ram_cs2 & cpu_we & cpu_sel[0]),
+	.wren_a(ram_cs2 & cpu_we & cpu_sel[0] & ls245_en),
 	.data_a(cpu_dout[7:0]),
 
 	.clock_b(clock),

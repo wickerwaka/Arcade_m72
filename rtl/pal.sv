@@ -7,7 +7,7 @@ module pal_3a
     input logic dben,
     input logic m_io,
     input logic [12:0] cod,
-	output logic ls245_en,
+	output logic ls245_en, // TODO this signal might be better named
 	output logic rom0_ce,
 	output logic rom1_ce,
 	output logic ram_cs2,
@@ -25,6 +25,35 @@ module pal_3a
 
         s = cod[11];
         n_s = ~cod[11];
+	end
+
+endmodule
+
+module pal_4d
+(
+    input logic M_IO,
+    input logic IOWR,
+    input logic IORD,
+	input logic [19:1] A,
+	output logic SW,
+	output logic FLAG,
+	output logic DSW,
+	output logic SND,
+    output logic FSET,
+    output logic DMA_ON,
+    output logic ISET,
+    output logic INTCS
+);
+
+	always_comb begin
+        SW = IORD & !A[7] & !A[6] & !A[3] & !A[2] & !A[1];
+        FLAG = IORD & !A[7] & !A[6] & !A[3] & !A[2] & A[1];
+        DSW = IORD & !A[7] & !A[6] & !A[3] & A[2] & !A[1];
+        SND = IOWR & !A[7] & !A[6] & !A[3] & !A[2] & !A[1];
+        FSET = IOWR & !A[7] & !A[6] & !A[3] & !A[2] & A[1];
+        DMA_ON = IOWR & !A[7] & !A[6] & !A[3] & A[2] & !A[1];
+        ISET = IOWR & !A[7] & !A[6] & !A[3] & A[2] & A[1];
+        INTCS = !M_IO & !A[7] & A[6];
 	end
 
 endmodule
