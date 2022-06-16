@@ -34,6 +34,8 @@ bool run_enable = 1;
 int batchSize = 150000;
 bool single_step = 0;
 bool multi_step = 0;
+bool cpu_single_step = 0;
+int cpu_single_step_pc = 0;
 int multi_step_amount = 1024;
 
 // Debug GUI 
@@ -453,6 +455,25 @@ void print_opcode() {
 	}
 }
 
+struct SplitMemory {
+	uint8_t* high;
+	uint8_t* low;
+};
+
+ImU8 SplitMemoryRead(const ImU8* data, size_t off)
+{
+	const SplitMemory* mem = (const SplitMemory*)data;
+	if (off & 1) return mem->high[off >> 1];
+	return mem->low[off >> 1];
+}
+
+void SplitMemoryWrite(ImU8* data, size_t off, ImU8 d)
+{
+	SplitMemory* mem = (SplitMemory*)data;
+	if (off & 1) mem->high[off >> 1] = d;
+	else mem->low[off >> 1] = d;
+}
+
 int main(int argc, char** argv, char** env) {
 
 	// Create core and initialise
@@ -568,6 +589,8 @@ int main(int argc, char** argv, char** env) {
 		if (ImGui::Button("Multi Step")) { run_enable = 0; multi_step = 1; }
 		//ImGui::SameLine();
 		ImGui::SliderInt("Multi step amount", &multi_step_amount, 8, 1024);
+		if (cpu_single_step == 1) { cpu_single_step = 0; }
+		if (ImGui::Button("CPU Single Step")) { run_enable = 0; cpu_single_step = 1; }
 
 		ImGui::End();
 
@@ -578,19 +601,27 @@ int main(int argc, char** argv, char** env) {
 		ImGui::Begin("Zet 8086 Core Registers");
 		//ImGui::Text("addr_fetch: 0x%05X", top->sim_m72__DOT__cpu_inst__DOT__addr_fetch);
 		ImGui::Text("   opcode: 0x%02X", top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__opcode); ImGui::SameLine(); print_opcode();
-		ImGui::Text("   pc: 0x%06X", top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__ip);
+		ImGui::Text("   pc: 0x%06X", top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__fetch__DOT__pc);
 		ImGui::Text("   ls245_en: %d", top->top__DOT__m72__DOT__ls245_en);
-		ImGui::Text("   cpu_addr: 0x%06X", top->top__DOT__m72__DOT__cpu_addr);
-		ImGui::Text("   ram_rom_data: 0x%04X", top->top__DOT__m72__DOT__rom_ram_data);
+		ImGui::Text("   cpu_addr: 0x%06X", top->top__DOT__m72__DOT__cpu_addr << 1);
+		ImGui::Text("   cpu_din: 0x%04X", top->top__DOT__m72__DOT__cpu_din);
+		ImGui::Text("   sel: %d%d", top->top__DOT__m72__DOT__cpu_sel >> 1, top->top__DOT__m72__DOT__cpu_sel & 1);
 		ImGui::Text("   ram_cs2: %d", top->top__DOT__m72__DOT__ram_cs2);
 		ImGui::Text("   rom_ce0: %d", top->top__DOT__m72__DOT__rom0_ce);
 		ImGui::Text("   rom_ce1: %d", top->top__DOT__m72__DOT__rom1_ce);
+		//ImGui::Text("       stb: %d", top->top__DOT__m72__DOT__stb);
+		//ImGui::Text("       ack: %d", top->top__DOT__m72__DOT__wb_ack_o);
 		ImGui::End();
 
 		// Memory debug
-		//ImGui::Begin("ROM Editor");
-		//mem_edit.DrawContents(top->top__DOT__m72__DOT__rom_h0__DOT__eprom_64__DOT__ram.m_array.data(), 10 * 1024, 0);
-		//ImGui::End();
+		SplitMemory smem;
+		smem.high = top->top__DOT__m72__DOT__ram_h__DOT__ram.m_array.data();
+		smem.low = top->top__DOT__m72__DOT__ram_l__DOT__ram.m_array.data();
+		mem_edit.ReadFn = SplitMemoryRead;
+		mem_edit.WriteFn = SplitMemoryWrite;
+		ImGui::Begin("Work RAM");
+		mem_edit.DrawContents(&smem, 16 * 1024, 0);
+		ImGui::End();
 
 		// Trace/VCD window
 		ImGui::Begin(windowTitle_Trace);
@@ -699,6 +730,12 @@ int main(int argc, char** argv, char** env) {
 			if (single_step) { verilate(); }
 			if (multi_step) {
 				for (int step = 0; step < multi_step_amount; step++) { verilate(); }
+			}
+			if (cpu_single_step) {
+				int start_pc = top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__fetch__DOT__pc;
+				while (top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__fetch__DOT__pc == start_pc) {
+					verilate();
+				}
 			}
 		}
 	}

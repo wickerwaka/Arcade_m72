@@ -74,7 +74,7 @@ module top(
    end
 
    m72 m72(
-      .clock(clk_12),
+      .clock(clk_48),
       .pixel_clock(clk_48),
       .reset_n(!reset),
       .z80_reset_n(!reset),
@@ -88,6 +88,7 @@ module top(
       .AUDIO_L(AUDIO_L),
       .AUDIO_R(AUDIO_R),
 
+      .sys_clk(clk_12),
       .ioctl_wr(ioctl_wr),
       .ioctl_addr(ioctl_addr),
       .ioctl_dout(ioctl_dout)

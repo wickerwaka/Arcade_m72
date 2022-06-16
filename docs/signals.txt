@@ -7,7 +7,8 @@ Pages: 19
 8Mhz clock
 
 S24H
-Pages: 19, 22, 
+Pages: 19, 22, 14
+Seems to be sourced from page 14 in the schematic. Pulled high, bypassed with J1
 
 DCKL
 Pages: 19

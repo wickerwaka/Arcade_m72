@@ -2,6 +2,7 @@
 
 module m72 (
 	input clock,
+	input sys_clk,
 	input reset_n,
 	
 	input pixel_clock,
@@ -56,12 +57,16 @@ wire cpu_nmi_ack;
 wire cpu_int_rq;
 wire cpu_int_ack;
 
+reg wb_ack_wait = 0;
 
 always @(posedge clock or negedge reset_n)
 begin
-	if (!reset_n) wb_ack_o <= 0;
-	else begin
-		wb_ack_o <= stb & cyc;
+	if (!reset_n) begin
+		wb_ack_o <= 0;
+		wb_ack_wait <= 0;
+	end else begin
+		if (stb) wb_ack_wait <= ~wb_ack_wait;
+		wb_ack_o <= stb & wb_ack_wait;
 	end
 end
 
@@ -89,16 +94,6 @@ zet zet_inst (
 wire intr;
 wire inta;
 
-wire [19:0] byte_addr = {cpu_addr, 1'b0};
-
-wire pic_cs = (byte_addr[7:0]>=8'h40 && byte_addr[7:0]<=8'h43) && cpu_iorq && cyc && stb;
-
-wire [15:0] pic_dout;
-
-wire [7:0] pic_irq_vec;
-
-wire pic_data_ack;
-
 wire [7:0] dout_h0, dout_l0, dout_h1, dout_l1, dout_hr, dout_lr;
 wire ioctl_h0_cs, ioctl_h1_cs, ioctl_l0_cs, ioctl_l1_cs;
 wire ls245_en, rom0_ce, rom1_ce, ram_cs2;
@@ -112,7 +107,7 @@ wire [15:0] cpu_din = ls245_en ? rom_ram_data : 16'hf0f0;
 pal_3a pal_3a(
 	.a(cpu_addr),
 	.bank(),
-	.dben(~(stb & cyc)),
+	.dben(~stb),
 	.m_io(~cpu_iorq),
 	.cod(),
 	.ls245_en(ls245_en),
@@ -136,7 +131,7 @@ eprom_64 rom_h0(
 	.addr(cpu_addr[16:1]),
 	.data(dout_h0),
 
-	.clk_in(clock),
+	.clk_in(sys_clk),
 	.addr_in(ioctl_addr[15:0]),
 	.data_in(ioctl_dout),
 	.wr_in(ioctl_wr),
@@ -148,7 +143,7 @@ eprom_64 rom_l0(
 	.addr(cpu_addr[16:1]),
 	.data(dout_l0),
 
-	.clk_in(clock),
+	.clk_in(sys_clk),
 	.addr_in(ioctl_addr[15:0]),
 	.data_in(ioctl_dout),
 	.wr_in(ioctl_wr),
@@ -160,7 +155,7 @@ eprom_64 rom_h1(
 	.addr(cpu_addr[16:1]),
 	.data(dout_h1),
 
-	.clk_in(clock),
+	.clk_in(sys_clk),
 	.addr_in(ioctl_addr[15:0]),
 	.data_in(ioctl_dout),
 	.wr_in(ioctl_wr),
@@ -172,7 +167,7 @@ eprom_64 rom_l1(
 	.addr(cpu_addr[16:1]),
 	.data(dout_l1),
 
-	.clk_in(clock),
+	.clk_in(sys_clk),
 	.addr_in(ioctl_addr[15:0]),
 	.data_in(ioctl_dout),
 	.wr_in(ioctl_wr),
