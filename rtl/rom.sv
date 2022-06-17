@@ -32,11 +32,16 @@
 module download_selector
 (
 	input logic [24:0] ioctl_addr,
-	output logic h0_cs, h1_cs, l0_cs, l1_cs
+	output logic h0_cs, h1_cs, l0_cs, l1_cs,
+	output logic [3:0] gfx_a_cs,
+	output logic [3:0] gfx_b_cs
 );
 
 	always_comb begin
 		{h0_cs, h1_cs, l0_cs, l1_cs} = 0;
+		gfx_a_cs = 0;
+		gfx_b_cs = 0;
+
 		if(ioctl_addr < 'h10000)
 			h0_cs = 1;
 		else if(ioctl_addr < 'h20000)
@@ -45,6 +50,23 @@ module download_selector
 			h1_cs = 1;
 		else if(ioctl_addr < 'h40000)
 			l1_cs = 1;
+		else if(ioctl_addr < 'h58000)
+			gfx_a_cs[0] = 1;
+		else if(ioctl_addr < 'h60000)
+			gfx_a_cs[1] = 1;
+		else if(ioctl_addr < 'h68000)
+			gfx_a_cs[2] = 1;
+		else if(ioctl_addr < 'h70000)
+			gfx_a_cs[3] = 1;
+		else if(ioctl_addr < 'h78000)
+			gfx_b_cs[0] = 1;
+		else if(ioctl_addr < 'h80000)
+			gfx_b_cs[1] = 1;
+		else if(ioctl_addr < 'h88000)
+			gfx_b_cs[2] = 1;
+		else if(ioctl_addr < 'h90000)
+			gfx_b_cs[3] = 1;
+
 	end
 endmodule
 
@@ -62,6 +84,35 @@ module eprom_64
 	input logic        wr_in
 );
 	dpramv #(.widthad_a(16)) eprom_64
+	(
+		.clock_a(clk),
+		.address_a(addr),
+		.q_a(data),
+        .wren_a(0),
+        .data_a(),
+
+		.clock_b(clk_in),
+		.address_b(addr_in),
+		.data_b(data_in),
+		.wren_b(wr_in & cs_in),
+        .q_b()
+	);
+endmodule
+
+module eprom_32
+(
+	input logic        clk,
+	input logic [14:0] addr,
+	output logic [7:0] data,
+
+
+	input logic        clk_in,
+	input logic [14:0] addr_in,
+	input logic [7:0]  data_in,
+	input logic        cs_in,
+	input logic        wr_in
+);
+	dpramv #(.widthad_a(15)) eprom_64
 	(
 		.clock_a(clk),
 		.address_a(addr),

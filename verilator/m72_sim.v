@@ -66,16 +66,15 @@ module top(
    assign pause = inputs[11];       // pause
 
    reg ce_pix;
+   reg [1:0] div = 0;
    always @(posedge clk_48) begin
-      reg old_clk;
-      
-      old_clk <= clk_12;
-      ce_pix <= old_clk & ~clk_12;
+      div <= div + 2'd1;
+      ce_pix <= div == 2'd0;
    end
 
    m72 m72(
       .clock(clk_48),
-      .pixel_clock(clk_48),
+      .pixel_clock(ce_pix),
       .reset_n(!reset),
       .z80_reset_n(!reset),
       .VGA_HS(VGA_HS),

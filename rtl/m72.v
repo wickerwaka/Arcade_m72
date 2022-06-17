@@ -28,26 +28,10 @@ module m72 (
 
 /* Global signals from schematics */
 wire M_IO = ~cpu_iorq; // high = memory low = IO
-wire IOWR = cpu_iorq & cpu_we; // IO Write
-wire IORD = cpu_iorq & ~cpu_we; // IO Read
-
-
-reg [8:0] h_count;
-reg [8:0] v_count;
-
-always @(posedge pixel_clock or negedge reset_n)
-begin
-	if (!reset_n) begin
-		h_count <= 9'd0;
-		v_count <= 9'd0;
-	end
-	else begin
-		h_count <= h_count + 1;	// h_count from 0 to 511.
-
-		if (v_count==9'd283) v_count <= 0;
-		else if (h_count==9'd0) v_count <= v_count + 1;
-	end
-end
+wire IOWR = cpu_iorq & cpu_we & stb; // IO Write
+wire IORD = cpu_iorq & ~cpu_we & stb; // IO Read
+wire MWR = ~cpu_iorq & cpu_we & stb; // Mem Write
+wire MRD = ~cpu_iorq & ~cpu_we & stb; // Mem Read
 
 reg wb_ack_o;
 wire stb, cyc;
@@ -97,11 +81,11 @@ zet zet_inst (
 	.nmia     ( cpu_nmi_ack )			// output nmia
 );
 
-wire intr;
-wire inta;
-
 wire [7:0] dout_h0, dout_l0, dout_h1, dout_l1, dout_hr, dout_lr;
 wire ioctl_h0_cs, ioctl_h1_cs, ioctl_l0_cs, ioctl_l1_cs;
+wire [3:0] ioctl_gfx_a_cs;
+wire [3:0] ioctl_gfx_b_cs;
+
 wire ls245_en, rom0_ce, rom1_ce, ram_cs2;
 
 wire [15:0] rom_ram_data = rom0_ce ? { dout_h0, dout_l0 } :
@@ -111,6 +95,8 @@ wire [15:0] rom_ram_data = rom0_ce ? { dout_h0, dout_l0 } :
 reg [15:0] pic;
 
 wire [15:0] cpu_din =
+	(vblank_trig && cpu_int_ack) ? 16'h0020 :
+	(hint_trig && cpu_int_ack) ? 16'h0022 :
 	ls245_en ? rom_ram_data :
 	SW ? 16'hffff : // TODO player inputs
 	FLAG ? 16'hffff : // TODO test, start and tnsl
@@ -145,7 +131,7 @@ pal_3a pal_3a(
 
 wire SW, FLAG, DSW, SND, FSET, DMA_ON, ISET, INTCS;
 
-pal_4d pal_3d(
+pal_4d pal_4d(
     .M_IO(M_IO),
     .IOWR(IOWR),
     .IORD(IORD),
@@ -160,12 +146,32 @@ pal_4d pal_3d(
     .INTCS(INTCS)
 );
 
+wire BUFDBEN, BUFCS, OBJ_P, CHARA_P, CHARA, SOUND, SDBEN;
+
+pal_3d pal_3d(
+	.A(cpu_addr),
+    .M_IO(~cpu_iorq),
+    .DBEN(~stb),
+    .TNSL(), // TODO
+    .BRQ(), // TODO
+
+	.BUFDBEN(BUFDBEN),
+	.BUFCS(BUFCS),
+	.OBJ_P(OBJ_P),
+	.CHARA_P(CHARA_P),
+    .CHARA(CHARA),
+    .SOUND(SOUND),
+    .SDBEN(SDBEN)
+);
+
 download_selector download_selector(
 	.ioctl_addr(ioctl_addr),
 	.h0_cs(ioctl_h0_cs),
 	.h1_cs(ioctl_h1_cs),
 	.l0_cs(ioctl_l0_cs),
-	.l1_cs(ioctl_l1_cs)
+	.l1_cs(ioctl_l1_cs),
+	.gfx_a_cs(ioctl_gfx_a_cs),
+	.gfx_b_cs(ioctl_gfx_b_cs)
 );
 
 eprom_64 rom_h0(
@@ -266,22 +272,31 @@ pic pic_inst (
 
 reg vblank_trig;
 reg hint_trig;
-always @(posedge clock or negedge reset_n)
-if (!reset_n) begin
-	//vblank_trig <= 1'b0;
-	//hint_trig <= 1'b0;
-end
-else begin
-	if (vblank_trig && inta) vblank_trig <= 1'b0;
-	if (hint_trig && inta) hint_trig <= 1'b0;
-	
-	if (inta && stb) begin
+reg old_vblk, old_hint;
+assign cpu_int_rq = (vblank_trig | hint_trig);
+always @(posedge clock or negedge reset_n) begin
+	if (!reset_n) begin
 		vblank_trig <= 1'b0;
 		hint_trig <= 1'b0;
+		old_vblk <= 1'b0;
+		old_hint <= 1'b0;
+	end
+	else begin
+		old_vblk <= VBLK;
+		old_hint <= HINT;
+
+		if (VBLK & ~old_vblk) vblank_trig <= 1'b1;
+		if (HINT & ~old_hint) hint_trig <= 1'b1;
+		if (vblank_trig && cpu_int_ack) vblank_trig <= 1'b0;
+		if (hint_trig && cpu_int_ack) hint_trig <= 1'b0;
+		
+		if (cpu_int_ack && stb) begin
+			vblank_trig <= 1'b0;
+			hint_trig <= 1'b0;
+		end
 	end
 end
 
-assign intr = (vblank_trig || hint_trig);
 
 /*wire [15:0] wb_dat_i = (vblank_trig && inta) ? 16'h0020 :
 					     (hint_trig && inta) ? 16'h0022 :
@@ -346,6 +361,69 @@ begin
 end
 */
 
+wire [8:0] VE, V;
+wire [9:0] HE, H;
+wire HBLK, VBLK, HS, VS;
+wire INT_D, HINT;
 
+assign VGA_HS = HS;
+assign VGA_HB = HBLK;
+assign VGA_VS = VS;
+assign VGA_VB = VBLK;
+
+kna70h015 kna70h015(
+	.DCLK(pixel_clock),
+	.D(cpu_dout),
+	.ISET(ISET),
+	.NL(0),
+	.S24H(0),
+
+	.CLD_UNKNOWN(),
+	.CPBLK(),
+
+	.VE(VE),
+	.V(V),
+	.HE(HE),
+	.H(H),
+
+	.HBLK(HBLK),
+	.VBLK(VBLK),
+	.INT_D(INT_D),
+	.HINT(HINT),
+
+	.HS(HS),
+	.VS(VS)
+);
+
+board_b_d board_b_d(
+    .sys_clk(sys_clk),
+    .ioctl_wr(ioctl_wr),
+	.ioctl_addr(ioctl_addr),
+	.ioctl_dout(ioctl_dout),
+
+    .gfx_a_cs(ioctl_gfx_a_cs),
+    .gfx_b_cs(ioctl_gfx_b_cs),
+
+    .DCLK(pixel_clock),
+
+    .DOUT(),
+
+    .DIN(cpu_dout),
+    .A(cpu_addr),
+    .BYTE_SEL(cpu_sel),
+    .MRD(MRD),
+    .MWR(MWR),
+    .IORD(IORD),
+    .IOWR(IOWR),
+    .CHARA(CHARA),
+    .NL(),
+
+    .VE(VE),
+    .HE(HE),
+
+	.RED(VGA_R),
+	.GREEN(VGA_G),
+	.BLUE(VGA_B)
+);
 
 endmodule

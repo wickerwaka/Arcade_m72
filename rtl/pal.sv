@@ -57,3 +57,39 @@ module pal_4d
 	end
 
 endmodule
+
+module pal_3d
+(
+	input logic [19:1] A,
+    input logic M_IO,
+    input logic DBEN,
+    input logic TNSL,
+    input logic BRQ,
+
+	output logic BUFDBEN,
+	output logic BUFCS,
+	output logic OBJ_P,
+	output logic CHARA_P,
+    output logic CHARA,
+    output logic SOUND,
+    output logic SDBEN
+);
+
+	always_comb begin
+        BUFDBEN = A[19] & A[18] & !A[17] & !A[16] & !A[15] & !A[14] & M_IO & !DBEN & TNSL;
+
+        BUFCS = TNSL & (!A[19] | !A[18] | A[17] | A[16] | A[15] | A[14] | !M_IO);
+
+        OBJ_P = A[19] & A[18] & !A[17] & !A[16] & A[15] & !A[14] & M_IO;
+
+        CHARA_P = A[19] & A[18] & !A[17] & !A[16] & A[15] & A[14] & M_IO;
+
+        CHARA = A[19] & A[18] & !A[17] & A[16] & M_IO;
+
+        SOUND = A[19] & A[18] & A[17] & !A[16] & M_IO;
+
+        SDBEN = A[19] & A[18] & A[17] & !A[16] & M_IO & !DBEN & !BRQ;
+    end
+
+endmodule
+
