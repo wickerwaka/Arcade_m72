@@ -69,7 +69,7 @@ module top(
    reg [1:0] div = 0;
    always @(posedge clk_48) begin
       div <= div + 2'd1;
-      ce_pix <= div == 2'd0;
+      ce_pix <= div[0]; // == 2'd0;
    end
 
    m72 m72(

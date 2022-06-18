@@ -26,6 +26,8 @@ module m72 (
 	input [7:0]  ioctl_dout
 );
 
+wire CLK_32M = clock;
+
 /* Global signals from schematics */
 wire M_IO = ~cpu_iorq; // high = memory low = IO
 wire IOWR = cpu_iorq & cpu_we & stb; // IO Write
@@ -97,10 +99,14 @@ reg [15:0] pic;
 wire [15:0] cpu_din =
 	(vblank_trig && cpu_int_ack) ? 16'h0020 :
 	(hint_trig && cpu_int_ack) ? 16'h0022 :
-	ls245_en ? rom_ram_data :
+	b_d_dout_valid ? b_d_dout :
+	obj_pal_dout_valid ? obj_pal_dout :
+	sound_dout_valid ? sound_dout :
+	sprite_dout_valid ? sprite_dout :
+	ls245_en ? rom_ram_data : 
 	SW ? 16'hffff : // TODO player inputs
 	FLAG ? 16'hffff : // TODO test, start and tnsl
-	DSW ? 16'hffff : // TODO DIP Switches
+	DSW ? 16'hfeff : // TODO DIP Switches
 	INTCS ? pic : // TODO PIC
 	16'hffff;
 
@@ -152,7 +158,7 @@ pal_3d pal_3d(
 	.A(cpu_addr),
     .M_IO(~cpu_iorq),
     .DBEN(~stb),
-    .TNSL(), // TODO
+    .TNSL(1), // TODO
     .BRQ(), // TODO
 
 	.BUFDBEN(BUFDBEN),
@@ -372,6 +378,8 @@ assign VGA_VS = VS;
 assign VGA_VB = VBLK;
 
 kna70h015 kna70h015(
+	.CLK_32M(CLK_32M),
+
 	.DCLK(pixel_clock),
 	.D(cpu_dout),
 	.ISET(ISET),
@@ -395,7 +403,12 @@ kna70h015 kna70h015(
 	.VS(VS)
 );
 
+wire [15:0] b_d_dout;
+wire b_d_dout_valid;
+
 board_b_d board_b_d(
+	.CLK_32M(CLK_32M),
+
     .sys_clk(sys_clk),
     .ioctl_wr(ioctl_wr),
 	.ioctl_addr(ioctl_addr),
@@ -406,7 +419,8 @@ board_b_d board_b_d(
 
     .DCLK(pixel_clock),
 
-    .DOUT(),
+    .DOUT(b_d_dout),
+	.DOUT_VALID(b_d_dout_valid),
 
     .DIN(cpu_dout),
     .A(cpu_addr),
@@ -416,6 +430,7 @@ board_b_d board_b_d(
     .IORD(IORD),
     .IOWR(IOWR),
     .CHARA(CHARA),
+	.CHARA_P(CHARA_P),
     .NL(),
 
     .VE(VE),
@@ -425,5 +440,70 @@ board_b_d board_b_d(
 	.GREEN(VGA_G),
 	.BLUE(VGA_B)
 );
+
+
+wire [15:0] sound_dout;
+wire sound_dout_valid;
+
+sound sound(
+	.CLK_32M(CLK_32M),
+	.DIN(cpu_dout),
+	.DOUT(sound_dout),
+	.DOUT_VALID(sound_dout_valid),
+	
+	.A(cpu_addr),
+    .BYTE_SEL(cpu_sel),
+
+    .SDBEN(SDBEN),
+    .MRD(MRD),
+    .MWR(MWR)
+);
+
+// Temp A-C board palette
+wire [15:0] obj_pal_dout;
+wire obj_pal_dout_valid;
+
+kna91h014 obj_pal(
+    .DCLK(pixel_clock),
+    .CLK_32M(CLK_32M),
+
+    .G(OBJ_P),
+    .SELECT(0),
+    .CA(),
+    .CB(),
+
+    .E1_N(), // TODO
+    .E2_N(), // TODO
+	
+	.MWR(MWR),
+	.MRD(MRD),
+
+	.DIN(cpu_dout),
+    .DOUT(obj_pal_dout),
+    .DOUT_VALID(obj_pal_dout_valid),
+    .A(cpu_addr),
+
+    .RED(),
+    .GRN(),
+    .BLU()
+);
+
+wire [15:0] sprite_dout;
+wire sprite_dout_valid;
+
+sprite sprite(
+	.CLK_32M(CLK_32M),
+	.DIN(cpu_dout),
+	.DOUT(sprite_dout),
+	.DOUT_VALID(sprite_dout_valid),
+	
+	.A(cpu_addr),
+    .BYTE_SEL(cpu_sel),
+
+    .BUFDBEN(BUFDBEN),
+    .MRD(MRD),
+    .MWR(MWR)
+);
+
 
 endmodule

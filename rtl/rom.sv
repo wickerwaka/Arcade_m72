@@ -50,21 +50,21 @@ module download_selector
 			h1_cs = 1;
 		else if(ioctl_addr < 'h40000)
 			l1_cs = 1;
-		else if(ioctl_addr < 'h58000)
+		else if(ioctl_addr < 'h48000)
 			gfx_a_cs[0] = 1;
-		else if(ioctl_addr < 'h60000)
+		else if(ioctl_addr < 'h50000)
 			gfx_a_cs[1] = 1;
-		else if(ioctl_addr < 'h68000)
+		else if(ioctl_addr < 'h58000)
 			gfx_a_cs[2] = 1;
-		else if(ioctl_addr < 'h70000)
+		else if(ioctl_addr < 'h60000)
 			gfx_a_cs[3] = 1;
-		else if(ioctl_addr < 'h78000)
+		else if(ioctl_addr < 'h68000)
 			gfx_b_cs[0] = 1;
-		else if(ioctl_addr < 'h80000)
+		else if(ioctl_addr < 'h70000)
 			gfx_b_cs[1] = 1;
-		else if(ioctl_addr < 'h88000)
+		else if(ioctl_addr < 'h78000)
 			gfx_b_cs[2] = 1;
-		else if(ioctl_addr < 'h90000)
+		else if(ioctl_addr < 'h80000)
 			gfx_b_cs[3] = 1;
 
 	end

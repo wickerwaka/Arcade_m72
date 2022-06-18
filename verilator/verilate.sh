@@ -3,6 +3,7 @@ verilator \
 --compiler msvc +define+SIMULATION=1 \
 -O3 --x-assign fast --x-initial fast --noassert \
 --converge-limit 6000 \
+--output-split 0 \
 -Wno-UNOPTFLAT \
 -Wno-TIMESCALEMOD \
 -Wno-COMBDLY \
@@ -17,6 +18,12 @@ verilator \
 ../rtl/m72.v \
 ../rtl/dpramv.sv \
 ../rtl/kna6034201.v \
+../rtl/kna70h015.sv \
+../rtl/kna91h014.v \
+../rtl/board_b_d_layer.sv \
+../rtl/board_b_d.sv \
 ../rtl/shifter_ls166.v \
 ../rtl/rom.sv \
+../rtl/sound.sv \
+../rtl/sprite.sv \
 ../rtl/pal.sv

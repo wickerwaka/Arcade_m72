@@ -27,6 +27,20 @@
 #include <fstream>
 using namespace std;
 
+// Verilog module
+// --------------
+Vtop* top = NULL;
+
+vluint64_t main_time = 0;	// Current simulation time.
+double sc_time_stamp() {	// Called by $time in Verilog.
+	return main_time;
+}
+
+int clk_sys_freq = 48000000;
+SimClock clk_48(1); // 48mhz
+SimClock clk_12(4); // 12mhz
+
+
 // Simulation control
 // ------------------
 int initialReset = 48;
@@ -35,12 +49,50 @@ int batchSize = 150000;
 bool single_step = 0;
 bool multi_step = 0;
 bool cpu_single_step = 0;
-int cpu_single_step_pc = 0;
+bool cpu_until_write = 0;
+bool cpu_until_io = 0;
+bool cpu_until_invalid_read = 0;
 int multi_step_amount = 1024;
+
+enum BreakCondition : unsigned int
+{
+	BREAK_NEXT_PC = 1 << 0,
+	BREAK_WRITE = 1 << 1,
+	BREAK_IO = 1 << 2,
+	BREAK_PC = 1 << 3,
+	BREAK_DATA_ADDR = 1 << 4,
+	BREAK_SCANLINE = 1 << 6
+};
+
+struct Breaker {
+	int condition = 0;
+	int pc = 0;
+	int addr = 0;
+	int scanline = 0;
+
+	bool check() {
+		if (!condition) return false;
+
+		const bool stb = top->top__DOT__m72__DOT__stb != 0;
+		const bool we = top->top__DOT__m72__DOT__cpu_we != 0;
+		const bool io = top->top__DOT__m72__DOT__cpu_iorq != 0;
+		const unsigned int cpu_addr = top->top__DOT__m72__DOT__cpu_addr << 1;
+
+		if ((condition & BREAK_WRITE) && (!we || !stb)) return false;
+		if ((condition & BREAK_IO) && (!io || !stb)) return false;
+
+		if ((condition & BREAK_DATA_ADDR) && (!stb || (cpu_addr != addr))) return false;
+
+		return true;
+	}
+};
+
+Breaker breaker;
+Breaker active_breaker;
 
 // Debug GUI 
 // ---------
-const char* windowTitle = "Verilator Sim: Arcade-Centipede";
+const char* windowTitle = "Verilator Sim: Arcade-M72";
 const char* windowTitle_Control = "Simulation control";
 const char* windowTitle_DebugLog = "Debug log";
 const char* windowTitle_Video = "VGA output";
@@ -72,26 +124,14 @@ const int input_pause = 11;
 
 // Video
 // -----
-#define VGA_WIDTH 320
-#define VGA_HEIGHT 240
-#define VGA_ROTATE -1  // 90 degrees anti-clockwise
+#define VGA_WIDTH 384
+#define VGA_HEIGHT 256
+#define VGA_ROTATE 0  // 90 degrees anti-clockwise
 #define VGA_SCALE_X vga_scale
 #define VGA_SCALE_Y vga_scale
 SimVideo video(VGA_WIDTH, VGA_HEIGHT, VGA_ROTATE);
 float vga_scale = 2.5;
 
-// Verilog module
-// --------------
-Vtop* top = NULL;
-
-vluint64_t main_time = 0;	// Current simulation time.
-double sc_time_stamp() {	// Called by $time in Verilog.
-	return main_time;
-}
-
-int clk_sys_freq = 48000000;
-SimClock clk_48(1); // 48mhz
-SimClock clk_12(4); // 12mhz
 
 // VCD trace logging
 // -----------------
@@ -124,6 +164,11 @@ void restore_model(const char* filenamep) {
 #ifndef DISABLE_AUDIO
 SimAudio audio(clk_sys_freq, true);
 #endif
+
+// Signal Macros
+#define CPU3(a, b, c) top->top__DOT__m72__DOT__zet_inst__DOT__ ##a ##__DOT__ ##b ##__DOT__ ##c
+#define CPU2(a, b) top->top__DOT__m72__DOT__zet_inst__DOT__ ##a ##__DOT__ ##b
+#define CPU1(a) top->top__DOT__m72__DOT__zet_inst__DOT__ ##a
 
 // Reset simulation variables and clocks
 void resetSim() {
@@ -181,9 +226,9 @@ int verilate() {
 			video.Clock(top->VGA_HB, top->VGA_VB, top->VGA_HS, top->VGA_VS, colour);
 		}
 
-		if (clk_48.IsRising()) {
+		//if (clk_48.IsRising()) {
 			main_time++;
-		}
+		//}
 		return 1;
 	}
 
@@ -538,7 +583,14 @@ int main(int argc, char** argv, char** env) {
 	bus.QueueDownload("../roms/rt_r-l0-b.3b", 0);
 	bus.QueueDownload("../roms/rt_r-h1-b.1c", 0);
 	bus.QueueDownload("../roms/rt_r-l1-b.3c", 0);
-
+	bus.QueueDownload("../roms/rt_b-a0.3c", 0);
+	bus.QueueDownload("../roms/rt_b-a1.3d", 0);
+	bus.QueueDownload("../roms/rt_b-a2.3a", 0);
+	bus.QueueDownload("../roms/rt_b-a3.3e", 0);
+	bus.QueueDownload("../roms/rt_b-b0.3j", 0);
+	bus.QueueDownload("../roms/rt_b-b1.3k", 0);
+	bus.QueueDownload("../roms/rt_b-b2.3h", 0);
+	bus.QueueDownload("../roms/rt_b-b3.3f", 0);
 
 #ifdef WIN32
 	MSG msg;
@@ -575,7 +627,7 @@ int main(int argc, char** argv, char** env) {
 		// Simulation control window
 		ImGui::Begin(windowTitle_Control);
 		ImGui::SetWindowPos(windowTitle_Control, ImVec2(0, 0), ImGuiCond_Once);
-		ImGui::SetWindowSize(windowTitle_Control, ImVec2(500, 150), ImGuiCond_Once);
+		ImGui::SetWindowSize(windowTitle_Control, ImVec2(500, 250), ImGuiCond_Once);
 		if (ImGui::Button("Reset simulation")) { resetSim(); } ImGui::SameLine();
 		if (ImGui::Button("Start running")) { run_enable = 1; } ImGui::SameLine();
 		if (ImGui::Button("Stop running")) { run_enable = 0; } ImGui::SameLine();
@@ -589,8 +641,47 @@ int main(int argc, char** argv, char** env) {
 		if (ImGui::Button("Multi Step")) { run_enable = 0; multi_step = 1; }
 		//ImGui::SameLine();
 		ImGui::SliderInt("Multi step amount", &multi_step_amount, 8, 1024);
+
+		ImGui::Text("Break at:");
+		ImGui::Separator();
+
+		ImGui::CheckboxFlags("Next PC", &breaker.condition, BREAK_NEXT_PC);
+		ImGui::SameLine();
+		ImGui::CheckboxFlags("Write Op", &breaker.condition, BREAK_WRITE);
+		ImGui::SameLine();
+		ImGui::CheckboxFlags("IO Op", &breaker.condition, BREAK_IO);
+
+		ImGui::CheckboxFlags("PC", &breaker.condition, BREAK_PC);
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(50);
+		static char pc_hex[64] = "";
+		if (ImGui::InputText("Address##pc", pc_hex, IM_ARRAYSIZE(pc_hex), ImGuiInputTextFlags_CharsHexadecimal)) {
+			breaker.pc = strtol(pc_hex, nullptr, 16);
+		}
+
+		ImGui::CheckboxFlags("Data", &breaker.condition, BREAK_DATA_ADDR);
+		ImGui::SameLine();
+		static char addr_hex[64] = "";
+		ImGui::SetNextItemWidth(50);
+		if (ImGui::InputText("Address##data", addr_hex, IM_ARRAYSIZE(addr_hex), ImGuiInputTextFlags_CharsHexadecimal)) {
+			breaker.addr = strtol(addr_hex, nullptr, 16);
+		}
+
+		ImGui::CheckboxFlags("Scanline", &breaker.condition, BREAK_SCANLINE);
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(80);
+		ImGui::InputInt("##scanline", &breaker.scanline);
+
+		/*
 		if (cpu_single_step == 1) { cpu_single_step = 0; }
 		if (ImGui::Button("CPU Single Step")) { run_enable = 0; cpu_single_step = 1; }
+		if (cpu_until_io == 1) { cpu_until_io = 0; }
+		if (ImGui::Button("CPU Run to IO")) { run_enable = 0; cpu_until_io = 1; }
+		if (cpu_until_write == 1) { cpu_until_write = 0; }
+		if (ImGui::Button("CPU Run to Write")) { run_enable = 0; cpu_until_write = 1; }
+		if (cpu_until_invalid_read == 1) { cpu_until_invalid_read = 0; }
+		if (ImGui::Button("CPU Run to Invalid Read")) { run_enable = 0; cpu_until_invalid_read = 1; }
+		*/
 
 		ImGui::End();
 
@@ -600,17 +691,34 @@ int main(int argc, char** argv, char** env) {
 
 		ImGui::Begin("Zet 8086 Core Registers");
 		//ImGui::Text("addr_fetch: 0x%05X", top->sim_m72__DOT__cpu_inst__DOT__addr_fetch);
-		ImGui::Text("   opcode: 0x%02X", top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__opcode); ImGui::SameLine(); print_opcode();
-		ImGui::Text("   pc: 0x%06X", top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__fetch__DOT__pc);
-		ImGui::Text("   ls245_en: %d", top->top__DOT__m72__DOT__ls245_en);
-		ImGui::Text("   cpu_addr: 0x%06X", top->top__DOT__m72__DOT__cpu_addr << 1);
-		ImGui::Text("   cpu_din: 0x%04X", top->top__DOT__m72__DOT__cpu_din);
-		ImGui::Text("   sel: %d%d", top->top__DOT__m72__DOT__cpu_sel >> 1, top->top__DOT__m72__DOT__cpu_sel & 1);
-		ImGui::Text("   ram_cs2: %d", top->top__DOT__m72__DOT__ram_cs2);
-		ImGui::Text("   rom_ce0: %d", top->top__DOT__m72__DOT__rom0_ce);
-		ImGui::Text("   rom_ce1: %d", top->top__DOT__m72__DOT__rom1_ce);
-		//ImGui::Text("       stb: %d", top->top__DOT__m72__DOT__stb);
-		//ImGui::Text("       ack: %d", top->top__DOT__m72__DOT__wb_ack_o);
+		ImGui::Text("  opcode: 0x%02X", top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__opcode); ImGui::SameLine(); print_opcode();
+		ImGui::Text("      pc: 0x%06X", top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__pc);
+		ImGui::Text("cpu_addr: 0x%06X", top->top__DOT__m72__DOT__cpu_addr << 1);
+		ImGui::Text(" cpu_din: 0x%04X", top->top__DOT__m72__DOT__cpu_din);
+		ImGui::Text("cpu_dout: 0x%04X", top->top__DOT__m72__DOT__cpu_dout);
+		ImGui::Text("     sel: %d%d", top->top__DOT__m72__DOT__cpu_sel >> 1, top->top__DOT__m72__DOT__cpu_sel & 1);
+		ImGui::Text("     stb: %d", top->top__DOT__m72__DOT__stb);
+		ImGui::Text("      io: %d", top->top__DOT__m72__DOT__cpu_iorq);
+		ImGui::Text("      we: %d", top->top__DOT__m72__DOT__cpu_we);
+
+		ImGui::Text("      sw: %d", top->top__DOT__m72__DOT__SW);
+		ImGui::Text("    flag: %d", top->top__DOT__m72__DOT__FLAG);
+		ImGui::Text("     dsw: %d", top->top__DOT__m72__DOT__DSW);
+		ImGui::Text("     snd: %d", top->top__DOT__m72__DOT__SND);
+		ImGui::Text("    fset: %d", top->top__DOT__m72__DOT__FSET);
+		ImGui::Text("  dma_on: %d", top->top__DOT__m72__DOT__DMA_ON);
+		ImGui::Text("    iset: %d", top->top__DOT__m72__DOT__ISET);
+		ImGui::Text("   intcs: %d", top->top__DOT__m72__DOT__INTCS);
+
+		ImGui::End();
+
+		ImGui::Begin("Video Parameters");
+		ImGui::Text("H: %3d (%3d)", top->top__DOT__m72__DOT__kna70h015__DOT__H, top->top__DOT__m72__DOT__kna70h015__DOT__HE);
+		ImGui::Text("V: %3d (%3d)", top->top__DOT__m72__DOT__kna70h015__DOT__V, top->top__DOT__m72__DOT__kna70h015__DOT__VE);
+		ImGui::Text("Int Line: %d", top->top__DOT__m72__DOT__kna70h015__DOT__h_int_line);
+		ImGui::Text("HINT: %d VBLK: %d", top->top__DOT__m72__DOT__kna70h015__DOT__HINT, top->top__DOT__m72__DOT__kna70h015__DOT__VBLK);
+		ImGui::Text("AX: %3d AY: %3d", top->top__DOT__m72__DOT__board_b_d__DOT__layer_a__DOT__adj_h, top->top__DOT__m72__DOT__board_b_d__DOT__layer_a__DOT__adj_v);
+		ImGui::Text("BX: %3d BY: %3d", top->top__DOT__m72__DOT__board_b_d__DOT__layer_b__DOT__adj_h, top->top__DOT__m72__DOT__board_b_d__DOT__layer_b__DOT__adj_v);
 		ImGui::End();
 
 		// Memory debug
@@ -724,18 +832,50 @@ int main(int argc, char** argv, char** env) {
 
 		// Run simulation
 		if (run_enable) {
-			for (int step = 0; step < batchSize; step++) { verilate(); }
+			for (int step = 0; step < batchSize; step++) {
+				if (breaker.check()) {
+					run_enable = 0;
+					break;
+				}
+				verilate();
+			}
 		}
 		else {
 			if (single_step) { verilate(); }
 			if (multi_step) {
-				for (int step = 0; step < multi_step_amount; step++) { verilate(); }
+				for (int step = 0; step < multi_step_amount; step++) { 
+					if (breaker.check()) {
+						break;
+					}
+					verilate();
+				}
 			}
 			if (cpu_single_step) {
 				int start_pc = top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__fetch__DOT__pc;
 				while (top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__fetch__DOT__pc == start_pc) {
 					verilate();
 				}
+			}
+			if (cpu_until_write) {
+				while (top->top__DOT__m72__DOT__cpu_we == 0) {
+					verilate();
+				}
+			}
+			if (cpu_until_io) {
+				while (top->top__DOT__m72__DOT__cpu_iorq && top->top__DOT__m72__DOT__stb) {
+					verilate();
+				}
+				while (!top->top__DOT__m72__DOT__cpu_iorq || !top->top__DOT__m72__DOT__stb) {
+					verilate();
+				}
+			}
+			if (cpu_until_invalid_read) {
+				unsigned char prev = top->top__DOT__m72__DOT__board_b_d__DOT__kna91h014__DOT__ram_a[2];
+				printf("Starting value: %d\n", prev);
+				while (top->top__DOT__m72__DOT__board_b_d__DOT__kna91h014__DOT__ram_a[2] == prev) {
+					verilate();
+				}
+				printf("Ending value: %d\n", top->top__DOT__m72__DOT__board_b_d__DOT__kna91h014__DOT__ram_a[2]);
 			}
 		}
 	}
