@@ -44,7 +44,7 @@ SimClock clk_12(4); // 12mhz
 // Simulation control
 // ------------------
 int initialReset = 48;
-bool run_enable = 1;
+bool run_enable = 0;
 int batchSize = 150000;
 bool single_step = 0;
 bool multi_step = 0;
@@ -53,6 +53,7 @@ bool cpu_until_write = 0;
 bool cpu_until_io = 0;
 bool cpu_until_invalid_read = 0;
 int multi_step_amount = 1024;
+int force_sprite_obj = 0;
 
 enum BreakCondition : unsigned int
 {
@@ -61,7 +62,9 @@ enum BreakCondition : unsigned int
 	BREAK_IO = 1 << 2,
 	BREAK_PC = 1 << 3,
 	BREAK_DATA_ADDR = 1 << 4,
-	BREAK_SCANLINE = 1 << 6
+	BREAK_SCANLINE = 1 << 6,
+	BREAK_INT_REQ = 1 << 7,
+	BREAK_INT_TOGGLE = 1 << 8,
 };
 
 struct Breaker {
@@ -77,11 +80,17 @@ struct Breaker {
 		const bool we = top->top__DOT__m72__DOT__cpu_we != 0;
 		const bool io = top->top__DOT__m72__DOT__cpu_iorq != 0;
 		const unsigned int cpu_addr = top->top__DOT__m72__DOT__cpu_addr << 1;
+		const unsigned int opcode = top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__opcode;
+		const bool exec = top->top__DOT__m72__DOT__zet_inst__DOT__core__DOT__exec_st != 0;
+
 
 		if ((condition & BREAK_WRITE) && (!we || !stb)) return false;
 		if ((condition & BREAK_IO) && (!io || !stb)) return false;
 
 		if ((condition & BREAK_DATA_ADDR) && (!stb || (cpu_addr != addr))) return false;
+
+		//if ((condition & BREAK_INT_REQ) && (!top->top__DOT__m72__DOT__pic__DOT__intr)) return false;
+		if ((condition & BREAK_INT_TOGGLE) && (exec == false || (opcode != 0xfb && opcode != 0xfa))) return false;
 
 		return true;
 	}
@@ -90,6 +99,24 @@ struct Breaker {
 Breaker breaker;
 Breaker active_breaker;
 
+struct Obj {
+	uint16_t y : 9;
+	uint16_t pad0 : 7;
+	
+	uint16_t code : 16;
+	
+	uint16_t color : 4;
+	uint16_t pad1 : 6;
+	uint16_t flipy : 1;
+	uint16_t flipx : 1;
+	uint16_t height : 2;
+	uint16_t width : 2;
+
+	uint16_t x : 10;
+	uint16_t pad2 : 6;
+};
+
+const Obj* sprite_data = (Obj*)top->top__DOT__m72__DOT__sprite__DOT__objram__DOT__ram.m_array.data();
 // Debug GUI 
 // ---------
 const char* windowTitle = "Verilator Sim: Arcade-M72";
@@ -194,6 +221,8 @@ int verilate() {
 		// Set clocks in core
 		top->clk_48 = clk_48.clk;
 		top->clk_12 = clk_12.clk;
+
+		top->force_code = force_sprite_obj;
 
 		// Simulate both edges of fastest clock
 		if (clk_48.clk != clk_48.old) {
@@ -591,6 +620,14 @@ int main(int argc, char** argv, char** env) {
 	bus.QueueDownload("../roms/rt_b-b1.3k", 0);
 	bus.QueueDownload("../roms/rt_b-b2.3h", 0);
 	bus.QueueDownload("../roms/rt_b-b3.3f", 0);
+	bus.QueueDownload("../roms/rt_r-00.1h", 0);
+	bus.QueueDownload("../roms/rt_r-01.1j", 0);
+	bus.QueueDownload("../roms/rt_r-10.1k", 0);
+	bus.QueueDownload("../roms/rt_r-11.1l", 0);
+	bus.QueueDownload("../roms/rt_r-20.3h", 0);
+	bus.QueueDownload("../roms/rt_r-21.3j", 0);
+	bus.QueueDownload("../roms/rt_r-30.3k", 0);
+	bus.QueueDownload("../roms/rt_r-31.3l", 0);
 
 #ifdef WIN32
 	MSG msg;
@@ -650,6 +687,10 @@ int main(int argc, char** argv, char** env) {
 		ImGui::CheckboxFlags("Write Op", &breaker.condition, BREAK_WRITE);
 		ImGui::SameLine();
 		ImGui::CheckboxFlags("IO Op", &breaker.condition, BREAK_IO);
+		ImGui::CheckboxFlags("IRQ", &breaker.condition, BREAK_INT_REQ);
+		ImGui::SameLine();
+		ImGui::CheckboxFlags("IRQ Toggle", &breaker.condition, BREAK_INT_TOGGLE);
+
 
 		ImGui::CheckboxFlags("PC", &breaker.condition, BREAK_PC);
 		ImGui::SameLine();
@@ -719,6 +760,7 @@ int main(int argc, char** argv, char** env) {
 		ImGui::Text("HINT: %d VBLK: %d", top->top__DOT__m72__DOT__kna70h015__DOT__HINT, top->top__DOT__m72__DOT__kna70h015__DOT__VBLK);
 		ImGui::Text("AX: %3d AY: %3d", top->top__DOT__m72__DOT__board_b_d__DOT__layer_a__DOT__adj_h, top->top__DOT__m72__DOT__board_b_d__DOT__layer_a__DOT__adj_v);
 		ImGui::Text("BX: %3d BY: %3d", top->top__DOT__m72__DOT__board_b_d__DOT__layer_b__DOT__adj_h, top->top__DOT__m72__DOT__board_b_d__DOT__layer_b__DOT__adj_v);
+		ImGui::InputInt("Force Sprite", &force_sprite_obj);
 		ImGui::End();
 
 		// Memory debug
@@ -832,20 +874,32 @@ int main(int argc, char** argv, char** env) {
 
 		// Run simulation
 		if (run_enable) {
+			bool prev_cond = breaker.check();
 			for (int step = 0; step < batchSize; step++) {
 				if (breaker.check()) {
-					run_enable = 0;
-					break;
+					if (!prev_cond) {
+						run_enable = 0;
+						break;
+					}
+				} else {
+					prev_cond = false;
 				}
+
 				verilate();
 			}
 		}
 		else {
 			if (single_step) { verilate(); }
 			if (multi_step) {
+				bool prev_cond = breaker.check();
 				for (int step = 0; step < multi_step_amount; step++) { 
 					if (breaker.check()) {
-						break;
+						if (!prev_cond) {
+							break;
+						}
+					}
+					else {
+						prev_cond = false;
 					}
 					verilate();
 				}

@@ -145,7 +145,7 @@ wire [7:0] ram_h_dout, ram_l_dout;
 assign COL = row_data[3:0];
 
 always @(posedge CLK_32M) begin // might need a faster clock
-    if (VSCK & BYTE_SEL[0]) adj_v <= 0; //DIN[8:0];
+    if (VSCK & BYTE_SEL[0]) adj_v <= DIN[8:0];
     if (HSCK & BYTE_SEL[0]) adj_h <= DIN[8:0];
 end
 

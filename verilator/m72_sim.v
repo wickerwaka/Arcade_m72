@@ -11,6 +11,8 @@ module top(
    output [7:0] VGA_R/*verilator public_flat*/,
    output [7:0] VGA_G/*verilator public_flat*/,
    output [7:0] VGA_B/*verilator public_flat*/,
+
+   input [12:0] force_code/*verilator public_flat*/,
    
    output VGA_HS,
    output VGA_VS,
@@ -69,11 +71,12 @@ module top(
    reg [1:0] div = 0;
    always @(posedge clk_48) begin
       div <= div + 2'd1;
-      ce_pix <= div[0]; // == 2'd0;
+      ce_pix <= div == 2'd0;
    end
 
    m72 m72(
       .clock(clk_48),
+      .ce_pix(ce_pix),
       .pixel_clock(ce_pix),
       .reset_n(!reset),
       .z80_reset_n(!reset),
@@ -90,7 +93,9 @@ module top(
       .sys_clk(clk_12),
       .ioctl_wr(ioctl_wr),
       .ioctl_addr(ioctl_addr),
-      .ioctl_dout(ioctl_dout)
+      .ioctl_dout(ioctl_dout),
+
+      .force_code(force_code)
       );
    
 endmodule

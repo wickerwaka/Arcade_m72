@@ -78,9 +78,9 @@ always @(posedge DCLK) blu_lat <= ram_c[addr_mux];
 
 // Output drivers to RGB DACs...
 wire blank = 1'b0;	// Todo.
-assign RED = (!blank) ? red_lat : 5'hzz;
-assign GRN = (!blank) ? grn_lat : 5'hzz;
-assign BLU = (!blank) ? blu_lat : 5'hzz;
+assign RED = (!blank) ? red_lat : 5'h00;
+assign GRN = (!blank) ? grn_lat : 5'h00;
+assign BLU = (!blank) ? blu_lat : 5'h00;
 
 //assign BLU = col_mux[4:0];
 

@@ -4,6 +4,7 @@ module m72 (
 	input clock,
 	input sys_clk,
 	input reset_n,
+	input ce_pix,
 	
 	input pixel_clock,
 	
@@ -23,7 +24,9 @@ module m72 (
 
 	input        ioctl_wr,
 	input [24:0] ioctl_addr,
-	input [7:0]  ioctl_dout
+	input [7:0]  ioctl_dout,
+
+	input [11:0] force_code
 );
 
 wire CLK_32M = clock;
@@ -34,6 +37,8 @@ wire IOWR = cpu_iorq & cpu_we & stb; // IO Write
 wire IORD = cpu_iorq & ~cpu_we & stb; // IO Read
 wire MWR = ~cpu_iorq & cpu_we & stb; // Mem Write
 wire MRD = ~cpu_iorq & ~cpu_we & stb; // Mem Read
+
+wire TNSL;
 
 reg wb_ack_o;
 wire stb, cyc;
@@ -87,6 +92,8 @@ wire [7:0] dout_h0, dout_l0, dout_h1, dout_l1, dout_hr, dout_lr;
 wire ioctl_h0_cs, ioctl_h1_cs, ioctl_l0_cs, ioctl_l1_cs;
 wire [3:0] ioctl_gfx_a_cs;
 wire [3:0] ioctl_gfx_b_cs;
+wire [7:0] ioctl_sprite_cs;
+
 
 wire ls245_en, rom0_ce, rom1_ce, ram_cs2;
 
@@ -177,7 +184,8 @@ download_selector download_selector(
 	.l0_cs(ioctl_l0_cs),
 	.l1_cs(ioctl_l1_cs),
 	.gfx_a_cs(ioctl_gfx_a_cs),
-	.gfx_b_cs(ioctl_gfx_b_cs)
+	.gfx_b_cs(ioctl_gfx_b_cs),
+	.sprite_cs(ioctl_sprite_cs)
 );
 
 eprom_64 rom_h0(
@@ -295,11 +303,7 @@ always @(posedge clock or negedge reset_n) begin
 		if (HINT & ~old_hint) hint_trig <= 1'b1;
 		if (vblank_trig && cpu_int_ack) vblank_trig <= 1'b0;
 		if (hint_trig && cpu_int_ack) hint_trig <= 1'b0;
-		
-		if (cpu_int_ack && stb) begin
-			vblank_trig <= 1'b0;
-			hint_trig <= 1'b0;
-		end
+	
 	end
 end
 
@@ -436,9 +440,14 @@ board_b_d board_b_d(
     .VE(VE),
     .HE(HE),
 
-	.RED(VGA_R),
-	.GREEN(VGA_G),
-	.BLUE(VGA_B)
+
+//	.RED(VGA_R),
+//	.GREEN(VGA_G),
+//	.BLUE(VGA_B),
+
+	.RED(),
+	.GREEN(),
+	.BLUE()
 );
 
 
@@ -463,14 +472,16 @@ sound sound(
 wire [15:0] obj_pal_dout;
 wire obj_pal_dout_valid;
 
+
+wire [4:0] obj_r, obj_g, obj_b;
 kna91h014 obj_pal(
     .DCLK(pixel_clock),
     .CLK_32M(CLK_32M),
 
     .G(OBJ_P),
     .SELECT(0),
-    .CA(),
-    .CB(),
+    .CA(pix_test),
+    .CB(pix_test),
 
     .E1_N(), // TODO
     .E2_N(), // TODO
@@ -483,16 +494,30 @@ kna91h014 obj_pal(
     .DOUT_VALID(obj_pal_dout_valid),
     .A(cpu_addr),
 
-    .RED(),
-    .GRN(),
-    .BLU()
+    .RED(obj_r),
+    .GRN(obj_g),
+    .BLU(obj_b)
 );
+
+//assign VGA_R = {obj_r[4:0], obj_r[4:2]};
+//assign VGA_G = {obj_g[4:0], obj_g[4:2]};
+//assign VGA_B = {obj_b[4:0], obj_b[4:2]};
+
+assign VGA_R = {pix_test[3:0], pix_test[3:0]};
+assign VGA_G = {pix_test[3:0], pix_test[3:0]};
+assign VGA_B = {pix_test[3:0], pix_test[3:0]};
 
 wire [15:0] sprite_dout;
 wire sprite_dout_valid;
 
+wire [7:0] pix_test;
+
+//assign VGA_R = pix_test;
+
 sprite sprite(
 	.CLK_32M(CLK_32M),
+	.CE_PIX(ce_pix),
+
 	.DIN(cpu_dout),
 	.DOUT(sprite_dout),
 	.DOUT_VALID(sprite_dout_valid),
@@ -502,7 +527,23 @@ sprite sprite(
 
     .BUFDBEN(BUFDBEN),
     .MRD(MRD),
-    .MWR(MWR)
+    .MWR(MWR),
+
+	.VE(VE),
+	.NL(0),
+	.HBLK(HBLK),
+	.pix_test(pix_test),
+
+	.TNSL(TNSL),
+	.DMA_ON(DMA_ON),
+
+	.sys_clk(sys_clk),
+    .ioctl_wr(ioctl_wr),
+	.ioctl_addr(ioctl_addr),
+	.ioctl_dout(ioctl_dout),
+    .sprite_cs(ioctl_sprite_cs),
+
+	.force_code(force_code)
 );
 
 

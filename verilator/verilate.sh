@@ -26,4 +26,5 @@ verilator \
 ../rtl/rom.sv \
 ../rtl/sound.sv \
 ../rtl/sprite.sv \
-../rtl/pal.sv
+../rtl/pal.sv \
+../rtl/pic.sv

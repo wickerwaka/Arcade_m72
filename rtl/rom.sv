@@ -34,13 +34,15 @@ module download_selector
 	input logic [24:0] ioctl_addr,
 	output logic h0_cs, h1_cs, l0_cs, l1_cs,
 	output logic [3:0] gfx_a_cs,
-	output logic [3:0] gfx_b_cs
+	output logic [3:0] gfx_b_cs,
+	output logic [7:0] sprite_cs
 );
 
 	always_comb begin
 		{h0_cs, h1_cs, l0_cs, l1_cs} = 0;
 		gfx_a_cs = 0;
 		gfx_b_cs = 0;
+		sprite_cs = 0;
 
 		if(ioctl_addr < 'h10000)
 			h0_cs = 1;
@@ -66,6 +68,22 @@ module download_selector
 			gfx_b_cs[2] = 1;
 		else if(ioctl_addr < 'h80000)
 			gfx_b_cs[3] = 1;
+		else if(ioctl_addr < 'h90000)
+			sprite_cs[0] = 1;
+		else if(ioctl_addr < 'h98000)
+			sprite_cs[1] = 1;
+		else if(ioctl_addr < 'ha8000)
+			sprite_cs[2] = 1;
+		else if(ioctl_addr < 'hb0000)
+			sprite_cs[3] = 1;
+		else if(ioctl_addr < 'hc0000)
+			sprite_cs[4] = 1;
+		else if(ioctl_addr < 'hc8000)
+			sprite_cs[5] = 1;
+		else if(ioctl_addr < 'hd8000)
+			sprite_cs[6] = 1;
+		else if(ioctl_addr < 'he0000)
+			sprite_cs[7] = 1;
 
 	end
 endmodule

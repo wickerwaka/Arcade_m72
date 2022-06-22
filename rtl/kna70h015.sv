@@ -69,7 +69,7 @@ always @(posedge DCLK) begin
     V <= v_count;
     VBLK <= 1;
 
-    HINT <= 0; //VE == h_int_line;
+    HINT <= VE == h_int_line;
 
     if (v_count < 9'd256) begin
         VBLK <= 0;
