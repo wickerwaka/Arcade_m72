@@ -1,0 +1,20 @@
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/m72.v
+set_global_assignment -name SDC_FILE Arcade-m72.sdc
+set_global_assignment -name SYSTEMVERILOG_FILE Arcade-m72.sv
+set_global_assignment -name SYSTEMVERILOG_FILE Arcade-m72.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/dpramv.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/kna6034201.v
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/kna70h015.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/kna91h014.v
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/board_b_d_layer.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/board_b_d.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/shifter_ls166.v
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rom.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sound.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sprite.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pal.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pic.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram.sv
+
+set_global_assignment -name QIP_FILE zet-master/cores/zet/files.qip
+

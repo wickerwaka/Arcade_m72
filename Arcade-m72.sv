@@ -1,8 +1,4 @@
 //============================================================================
-//  Arcade: Centipede
-//
-//  Port to MiSTer
-//  Copyright (C) 2019 alanswx
 //
 //  This program is free software; you can redistribute it and/or modify it
 //  under the terms of the GNU General Public License as published by the Free
@@ -17,6 +13,7 @@
 //  You should have received a copy of the GNU General Public License along
 //  with this program; if not, write to the Free Software Foundation, Inc.,
 //  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+//
 //============================================================================
 
 module emu
@@ -29,14 +26,19 @@ module emu
 	input         RESET,
 
 	//Must be passed to hps_io module
-	inout  [44:0] HPS_BUS,
+	inout  [48:0] HPS_BUS,
 
 	//Base video clock. Usually equals to CLK_SYS.
-	output        VGA_CLK,
+	output        CLK_VIDEO,
 
-	//Multiple resolutions are supported using different VGA_CE rates.
+	//Multiple resolutions are supported using different CE_PIXEL rates.
 	//Must be based on CLK_VIDEO
-	output        VGA_CE,
+	output        CE_PIXEL,
+
+	//Video aspect ratio for HDMI. Most retro systems have ratio 4:3.
+	//if VIDEO_ARX[12] or VIDEO_ARY[12] is set then [11:0] contains scaled size instead of aspect ratio.
+	output [12:0] VIDEO_ARX,
+	output [12:0] VIDEO_ARY,
 
 	output  [7:0] VGA_R,
 	output  [7:0] VGA_G,
@@ -44,25 +46,42 @@ module emu
 	output        VGA_HS,
 	output        VGA_VS,
 	output        VGA_DE,    // = ~(VBlank | HBlank)
+	output        VGA_F1,
+	output [1:0]  VGA_SL,
+	output        VGA_SCALER, // Force VGA scaler
 
-	//Base video clock. Usually equals to CLK_SYS.
-	output        HDMI_CLK,
+	input  [11:0] HDMI_WIDTH,
+	input  [11:0] HDMI_HEIGHT,
+	output        HDMI_FREEZE,
 
-	//Multiple resolutions are supported using different HDMI_CE rates.
-	//Must be based on CLK_VIDEO
-	output        HDMI_CE,
+`ifdef MISTER_FB
+	// Use framebuffer in DDRAM (USE_FB=1 in qsf)
+	// FB_FORMAT:
+	//    [2:0] : 011=8bpp(palette) 100=16bpp 101=24bpp 110=32bpp
+	//    [3]   : 0=16bits 565 1=16bits 1555
+	//    [4]   : 0=RGB  1=BGR (for 16/24/32 modes)
+	//
+	// FB_STRIDE either 0 (rounded to 256 bytes) or multiple of pixel size (in bytes)
+	output        FB_EN,
+	output  [4:0] FB_FORMAT,
+	output [11:0] FB_WIDTH,
+	output [11:0] FB_HEIGHT,
+	output [31:0] FB_BASE,
+	output [13:0] FB_STRIDE,
+	input         FB_VBL,
+	input         FB_LL,
+	output        FB_FORCE_BLANK,
 
-	output  [7:0] HDMI_R,
-	output  [7:0] HDMI_G,
-	output  [7:0] HDMI_B,
-	output        HDMI_HS,
-	output        HDMI_VS,
-	output        HDMI_DE,   // = ~(VBlank | HBlank)
-	output  [1:0] HDMI_SL,   // scanlines fx
-
-	//Video aspect ratio for HDMI. Most retro systems have ratio 4:3.
-	output  [7:0] HDMI_ARX,
-	output  [7:0] HDMI_ARY,
+`ifdef MISTER_FB_PALETTE
+	// Palette control for 8bit modes.
+	// Ignored for other video modes.
+	output        FB_PAL_CLK,
+	output  [7:0] FB_PAL_ADDR,
+	output [23:0] FB_PAL_DOUT,
+	input  [23:0] FB_PAL_DIN,
+	output        FB_PAL_WR,
+`endif
+`endif
 
 	output        LED_USER,  // 1 - ON, 0 - OFF.
 
@@ -72,286 +91,386 @@ module emu
 	output  [1:0] LED_POWER,
 	output  [1:0] LED_DISK,
 
+	// I/O board button press simulation (active high)
+	// b[1]: user button
+	// b[0]: osd button
+	output  [1:0] BUTTONS,
+
+	input         CLK_AUDIO, // 24.576 MHz
 	output [15:0] AUDIO_L,
 	output [15:0] AUDIO_R,
-	output        AUDIO_S    // 1 - signed audio samples, 0 - unsigned
+	output        AUDIO_S,   // 1 - signed audio samples, 0 - unsigned
+	output  [1:0] AUDIO_MIX, // 0 - no mix, 1 - 25%, 2 - 50%, 3 - 100% (mono)
+
+	//ADC
+	inout   [3:0] ADC_BUS,
+
+	//SD-SPI
+	output        SD_SCK,
+	output        SD_MOSI,
+	input         SD_MISO,
+	output        SD_CS,
+	input         SD_CD,
+
+	//High latency DDR3 RAM interface
+	//Use for non-critical time purposes
+	output        DDRAM_CLK,
+	input         DDRAM_BUSY,
+	output  [7:0] DDRAM_BURSTCNT,
+	output [28:0] DDRAM_ADDR,
+	input  [63:0] DDRAM_DOUT,
+	input         DDRAM_DOUT_READY,
+	output        DDRAM_RD,
+	output [63:0] DDRAM_DIN,
+	output  [7:0] DDRAM_BE,
+	output        DDRAM_WE,
+
+	//SDRAM interface with lower latency
+	output        SDRAM_CLK,
+	output        SDRAM_CKE,
+	output [12:0] SDRAM_A,
+	output  [1:0] SDRAM_BA,
+	inout  [15:0] SDRAM_DQ,
+	output        SDRAM_DQML,
+	output        SDRAM_DQMH,
+	output        SDRAM_nCS,
+	output        SDRAM_nCAS,
+	output        SDRAM_nRAS,
+	output        SDRAM_nWE,
+
+`ifdef MISTER_DUAL_SDRAM
+	//Secondary SDRAM
+	//Set all output SDRAM_* signals to Z ASAP if SDRAM2_EN is 0
+	input         SDRAM2_EN,
+	output        SDRAM2_CLK,
+	output [12:0] SDRAM2_A,
+	output  [1:0] SDRAM2_BA,
+	inout  [15:0] SDRAM2_DQ,
+	output        SDRAM2_nCS,
+	output        SDRAM2_nCAS,
+	output        SDRAM2_nRAS,
+	output        SDRAM2_nWE,
+`endif
+
+	input         UART_CTS,
+	output        UART_RTS,
+	input         UART_RXD,
+	output        UART_TXD,
+	output        UART_DTR,
+	input         UART_DSR,
+
+	// Open-drain User port.
+	// 0 - D+/RX
+	// 1 - D-/TX
+	// 2..6 - USR2..USR6
+	// Set USER_OUT to 1 to read from USER_IN.
+	input   [6:0] USER_IN,
+	output  [6:0] USER_OUT,
+
+	input         OSD_STATUS
 );
 
-assign LED_USER  = ioctl_download;
-assign LED_DISK  = 0;
-assign LED_POWER = 0;
+///////// Default values for ports not used in this core /////////
 
-assign HDMI_ARX = status[1] ? 8'd16 : status[2] ? 8'd4 : 8'd1;
-assign HDMI_ARY = status[1] ? 8'd9  : status[2] ? 8'd3 : 8'd1;
+assign ADC_BUS  = 'Z;
+assign USER_OUT = '1;
+assign {UART_RTS, UART_TXD, UART_DTR} = 0;
+assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
+assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
+assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;  
+
+assign VGA_SL = 0;
+assign VGA_F1 = 0;
+assign VGA_SCALER = 0;
+assign HDMI_FREEZE = 0;
+
+assign AUDIO_S = 0;
+assign AUDIO_MIX = 0;
+
+assign LED_DISK = 0;
+assign LED_POWER = 0;
+assign BUTTONS = 0;
+
+//////////////////////////////////////////////////////////////////
+
+wire [1:0] ar = status[122:121];
+
+assign VIDEO_ARX = (!ar) ? 12'd4 : (ar - 1'd1);
+assign VIDEO_ARY = (!ar) ? 12'd3 : 12'd0;
 
 `include "build_id.v" 
 localparam CONF_STR = {
-	"A.CENTIPED;;",
-	"F,rom;", // allow loading of alternate ROMs
+	"M72;;",
 	"-;",
-	"O1,Aspect Ratio,Original,Wide;",
-	"O2,Orientation,Vert,Horz;",
-	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",  
+	"O[122:121],Aspect ratio,Original,Full Screen2,[ARC1],[ARC2];",
 	"-;",
-	"O89,Lives,2,3,4,5;",
-	"OAB,Bonus,10000,12000,15000,20000;",
-	"OC,Cabinet,Upright,Cocktail;",
-   "OD,Test,No,Yes;",
-   "OEF,Language,English,German,French,Spanish;",
-   "OG,Difficulty,Easy,Hard;",
+	"DIP;",
 	"-;",
-
-	"R0,Reset;",
-	"J1,Jump,Start 1P,Start 2P;",
-	"V,v",`BUILD_DATE
+	"T[0],Reset;",
+	"R[0],Reset and close OSD;",
+	"DEFMRA,/_Arcade/r-type.mra;",
+	"V,v",`BUILD_DATE 
 };
 
-wire [7:0]m_dip = {   1'b0, ~status[16],status[11:10],status[9:8],status[15:14]};
-
-////////////////////   CLOCKS   ///////////////////
-
-wire clk_sys=clk_12;
-wire clk_48;
-wire clk_24;
-wire clk_12;
-wire clk_6;
-wire clk_100mhz;
-
-pll pll
-(
-	.refclk(CLK_50M),
-	.rst(0),
-	.outclk_0(clk_24),
-	.outclk_1(clk_12),
-	.outclk_2(clk_6),
-	.outclk_3(clk_100mhz),
-	.outclk_4(clk_48)
-	
-);
-
-///////////////////////////////////////////////////
-
-wire [31:0] status;
-wire  [1:0] buttons;
 wire        forced_scandoubler;
+wire  [1:0] buttons;
+wire [128:0] status;
+wire [10:0] ps2_key;
 
 wire        ioctl_download;
+wire        ioctl_upload;
+wire        ioctl_upload_req;
+wire  [7:0] ioctl_index;
 wire        ioctl_wr;
 wire [24:0] ioctl_addr;
 wire  [7:0] ioctl_dout;
-
-wire [10:0] ps2_key;
+wire  [7:0] ioctl_din;
+wire        ioctl_wait;
 
 wire [15:0] joystick_0, joystick_1;
 wire [15:0] joy = joystick_0 | joystick_1;
 
-hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
+wire [21:0] gamma_bus;
+wire        direct_video;
+
+wire clk_sys = CLK_32M;
+
+hps_io #(.CONF_STR(CONF_STR)) hps_io
 (
 	.clk_sys(clk_sys),
 	.HPS_BUS(HPS_BUS),
+	.EXT_BUS(),
+	.gamma_bus(gamma_bus),
+	.direct_video(direct_video),
 
-	.conf_str(CONF_STR),
+	.forced_scandoubler(forced_scandoubler),
 
 	.buttons(buttons),
 	.status(status),
-	.forced_scandoubler(forced_scandoubler),
+	.status_menumask({direct_video}),
 
 	.ioctl_download(ioctl_download),
+	.ioctl_upload(ioctl_upload),
+	.ioctl_upload_req(ioctl_upload_req),
 	.ioctl_wr(ioctl_wr),
 	.ioctl_addr(ioctl_addr),
 	.ioctl_dout(ioctl_dout),
+	.ioctl_din(ioctl_din),
+	.ioctl_index(ioctl_index),
+	.ioctl_wait(ioctl_wait),
 
 	.joystick_0(joystick_0),
 	.joystick_1(joystick_1),
 	.ps2_key(ps2_key)
 );
 
-wire       pressed = ps2_key[9];
-wire [8:0] code    = ps2_key[8:0];
+///////////////////////   CLOCKS   ///////////////////////////////
+
+wire CLK_32M;
+wire CLK_96M;
+wire pll_locked;
+pll pll
+(
+	.refclk(CLK_50M),
+	.rst(0),
+	.outclk_0(CLK_96M),
+	.outclk_1(CLK_32M),
+	.locked(pll_locked)
+);
+
+wire reset = RESET | status[0] | buttons[1] | ioctl_download;
+
+///////////////////////////////////////////////////////////////////////
+// SDRAM
+///////////////////////////////////////////////////////////////////////
+wire [1:0] sdr_wr_sel1, sdr_wr_sel2;
+wire [15:0] sdr_din1, sdr_din2, sdr_dout1, sdr_dout2;
+wire [24:1] sdr_addr1, sdr_addr2;
+wire sdr_req1, sdr_req2, sdr_ack1, sdr_ack2;
+
+sdram sdram
+(
+	.*,
+	.init(~pll_locked),
+	.clk(CLK_96M),
+
+	.addr0(ioctl_addr[24:1]),
+	.din0({ioctl_dout[7:0],ioctl_dout[7:0]}),
+	.dout0(),
+	.wrl0(~ioctl_addr[0]),
+	.wrh0(ioctl_addr[0]),
+	.req0(ioctl_rom_wr),
+	.ack0(ioctl_rom_wrack),
+
+	.addr1(sdr_addr1),
+	.din1(sdr_din1),
+	.dout1(sdr_dout1),
+	.wrl1(sdr_wr_sel1[0]),
+	.wrh1(sdr_wr_sel1[1]),
+	.req1(sdr_req1),
+	.ack1(sdr_ack1),
+
+	.addr2(sdr_addr2),
+	.din2(sdr_din2),
+	.dout2(sdr_dout2),
+	.wrl2(sdr_wr_sel2[0]),
+	.wrh2(sdr_wr_sel2[1]),
+	.req2(sdr_req2),
+	.ack2(sdr_ack2)
+);
+
+reg  ioctl_rom_wr = 0;
+wire ioctl_rom_wrack;
 always @(posedge clk_sys) begin
+	reg old_reset;
+	old_reset <= reset;
+
+	if(~old_reset && reset) ioctl_wait <= 0;
+
+	if (ioctl_wr & ~ioctl_index) begin
+		ioctl_wait <= 1;
+		ioctl_rom_wr <= ~ioctl_rom_wr;
+	end else if(ioctl_wait && (ioctl_rom_wr == ioctl_rom_wrack)) begin
+		ioctl_wait <= 0;
+	end
+end
+
+
+
+
+
+///////////////////         Keyboard           //////////////////
+reg btn_up       = 0;
+reg btn_down     = 0;
+reg btn_left     = 0;
+reg btn_right    = 0;
+reg btn_a        = 0;
+reg btn_b        = 0;
+reg btn_coin1    = 0;
+reg btn_coin2    = 0;
+reg btn_1p_start = 0;
+reg btn_2p_start = 0;
+reg btn_pause    = 0;
+reg btn_service  = 0;
+
+wire pressed = ps2_key[9];
+wire [7:0] code = ps2_key[7:0];
+always @(posedge CLK_32M) begin
 	reg old_state;
 	old_state <= ps2_key[10];
-	
 	if(old_state != ps2_key[10]) begin
-		casex(code)
-			'hX75: btn_up          <= pressed; // up
-			'hX72: btn_down        <= pressed; // down
-			'hX6B: btn_left        <= pressed; // left
-			'hX74: btn_right       <= pressed; // right
-			'h029: btn_fire        <= pressed; // space
-			'h014: btn_fire        <= pressed; // ctrl
+		case(code)
+			'h16: btn_1p_start <= pressed; // 1
+			'h1E: btn_2p_start <= pressed; // 2
+			'h2E: btn_coin1    <= pressed; // 5
+			'h36: btn_coin2    <= pressed; // 6
+			'h46: btn_service  <= pressed; // 9
+			'h4D: btn_pause    <= pressed; // P
 
-			'h005: btn_one_player  <= pressed; // F1
-			'h006: btn_two_players <= pressed; // F2
-			
-			// JPAC/IPAC/MAME Style Codes
-			'h016: btn_start_1     <= pressed; // 1
-			'h01E: btn_start_2     <= pressed; // 2
-			'h02E: btn_coin_1      <= pressed; // 5
-			'h036: btn_coin_2      <= pressed; // 6
-			'h02D: btn_up_2        <= pressed; // R
-			'h02B: btn_down_2      <= pressed; // F
-			'h023: btn_left_2      <= pressed; // D
-			'h034: btn_right_2     <= pressed; // G
-			'h01C: btn_fire_2      <= pressed; // A
+			'h75: btn_up      <= pressed; // up
+			'h72: btn_down    <= pressed; // down
+			'h6B: btn_left    <= pressed; // left
+			'h74: btn_right   <= pressed; // right
+			'h14: btn_a       <= pressed; // ctrl						
+			'h11: btn_b       <= pressed; // alt						
 		endcase
 	end
 end
 
-reg btn_up    = 0;
-reg btn_down  = 0;
-reg btn_right = 0;
-reg btn_left  = 0;
-reg btn_fire  = 0;
-reg btn_one_player  = 0;
-reg btn_two_players = 0;
-
-reg btn_start_1=0;
-reg btn_start_2=0;
-reg btn_coin_1=0;
-reg btn_coin_2=0;
-reg btn_up_2=0;
-reg btn_down_2=0;
-reg btn_left_2=0;
-reg btn_right_2=0;
-reg btn_fire_2=0;
-
-wire m_up_2     = status[2] ? btn_left_2  | joy[1] : btn_up_2    | joy[3];
-wire m_down_2   = status[2] ? btn_right_2 | joy[0] : btn_down_2  | joy[2];
-wire m_left_2   = status[2] ? btn_down_2  | joy[2] : btn_left_2  | joy[1];
-wire m_right_2  = status[2] ? btn_up_2    | joy[3] : btn_right_2 | joy[0];
-wire m_fire_2  = btn_fire_2 | joy[4];
-
-wire m_up     = status[2] ? btn_left  | joy[1] : btn_up    | joy[3];
-wire m_down   = status[2] ? btn_right | joy[0] : btn_down  | joy[2];
-wire m_left   = status[2] ? btn_down  | joy[2] : btn_left  | joy[1];
-wire m_right  = status[2] ? btn_up    | joy[3] : btn_right | joy[0];
-wire m_fire   = btn_fire | joy[4];
-
-wire m_start1 = btn_one_player  | joy[5];
-wire m_start2 = btn_two_players | joy[6];
-wire m_coin   = m_start1 | m_start2;
-
-wire m_test = ~status[13];
-wire m_slam = 1'b1;//generate Noise
-
-wire hblank, vblank;
-wire hs, vs;
-wire [2:0] r,g,b;
-wire [8:0] rgb;
-
-reg ce_pix;
-always @(posedge clk_48) begin
-	reg old_clk;
-	old_clk <= clk_sys;
-	ce_pix <= old_clk & ~clk_sys;
+// DIP SWITCHES
+reg [7:0] dip_sw[8];	// Active-LOW
+always @(posedge CLK_32M) begin
+	if(ioctl_wr && (ioctl_index==254) && !ioctl_addr[24:3])
+		dip_sw[ioctl_addr[2:0]] <= ioctl_dout;
 end
 
-// is it bgr?
 
-//arcade_rotate_fx #(384,282,9) arcade_video
-arcade_rotate_fx #(512,240,9,1) arcade_video
-//arcade_rotate_fx #(512,224,9,4,1) arcade_video
-(
-	.*,
+//////////////////  Arcade Buttons/Interfaces   ///////////////////////////
 
-	.clk_video(clk_48),
-	//.ce_pix(clk_12),
+//Player 1
+wire m_up1      = btn_up      | joystick_0[3];
+wire m_down1    = btn_down    | joystick_0[2];
+wire m_left1    = btn_left    | joystick_0[1];
+wire m_right1   = btn_right   | joystick_0[0];
+wire m_btna1    = btn_a       | joystick_0[4];
+wire m_btnb1    = btn_b       | joystick_0[5];
+wire m_btnx1    = joystick_0[6];
+wire m_btny1    = joystick_0[7];
 
-	//.RGB_in(rgb),
-	.RGB_in({rgb[2:0],rgb[5:3],rgb[8:6]}),
-	.HBlank(hblank),
-	.VBlank(vblank),
-	.HSync(hs),
-	.VSync(vs),
+//Player 2
+wire m_up2      = btn_up      | joystick_1[3];
+wire m_down2    = btn_down    | joystick_1[2];
+wire m_left2    = btn_left    | joystick_1[1];
+wire m_right2   = btn_right   | joystick_1[0];
+wire m_btna2    = btn_a       | joystick_1[4];
+wire m_btnb2    = btn_b       | joystick_1[5];
+wire m_btnx2    = joystick_1[6];
+wire m_btny2    = joystick_1[7];
+
+//Start/coin
+wire m_start1   = btn_1p_start | joy[6];
+wire m_start2   = btn_2p_start | joy[8];
+wire m_coin1    = btn_coin1    | joy[7];
+wire m_coin2    = btn_coin2;
+wire m_pause    = btn_pause    | joy[9];
+
+//////////////////////////////////////////////////////////////////
+
+wire VGA_HB, VGA_VB;
+
+m72 m72(
+	.CLK_32M(CLK_32M),
+	.ce_pix(CE_PIXEL),
+	.reset_n(~reset),
+	.VGA_HS(VGA_HS),
+	.VGA_VS(VGA_VS),
+	.VGA_HB(VGA_HB),
+	.VGA_VB(VGA_VB),
+	.VGA_R(VGA_R),
+	.VGA_G(VGA_G),
+	.VGA_B(VGA_B),
+	.AUDIO_L(AUDIO_L),
+	.AUDIO_R(AUDIO_R),
+
+	.coin({~m_coin2, ~m_coin1}),
 	
-	.fx(status[5:3]),
-	.no_rotate(status[2])
+	.start_buttons({~m_start2, ~m_start1}),
+	
+	.p1_joystick({~m_down1, ~m_up1, ~m_left1, ~m_right1}),
+	.p2_joystick({~m_down2, ~m_up2, ~m_left2, ~m_right2}),
+	.p1_buttons({~m_btna1, ~m_btnb1, ~m_btnx1, ~m_btny1}),
+	.p2_buttons({~m_btna2, ~m_btnb2, ~m_btnx2, ~m_btny2}),
+	
+//	.btn_service(~btn_service),
 
+	.dip_sw({~dip_sw[1], ~dip_sw[0]}),
+
+	.sys_clk(CLK_32M),
+	.ioctl_wr(ioctl_wr & ~ioctl_index),
+	.ioctl_addr(ioctl_addr),
+	.ioctl_dout(ioctl_dout),
+
+	.sdr_wr_sel1(sdr_wr_sel1),
+	.sdr_din1(sdr_din1),
+	.sdr_dout1(sdr_dout1),
+	.sdr_addr1(sdr_addr1),
+	.sdr_req1(sdr_req1),
+	.sdr_ack1(sdr_ack1),
+
+	.sdr_wr_sel2(sdr_wr_sel2),
+	.sdr_din2(sdr_din2),
+	.sdr_dout2(sdr_dout2),
+	.sdr_addr2(sdr_addr2),
+	.sdr_req2(sdr_req2),
+	.sdr_ack2(sdr_ack2)
 );
 
+assign CLK_VIDEO = CLK_32M;
 
-wire [7:0] audio;
-assign AUDIO_L = {audio,audio};
-assign AUDIO_R = AUDIO_L;
-assign AUDIO_S = 0;
+assign VGA_DE = ~(VGA_HB | VGA_VB);
 
-   wire [3:0] led_o;
-   wire [7:0] trakball_i;
-   wire [7:0] joystick_i;
-   wire [7:0] sw1_i;
-   wire [7:0] sw2_i;
-   wire [9:0] playerinput_i;
-
-  
-
-   assign trakball_i = 0;
-   assign sw1_i = 8'h54;
-   assign sw2_i = 8'b0;
-/*
-   wire       coin_r, coin_c, coin_l, self_test, cocktail, slam, start1, start2, fire2, fire1;
-
-   assign coin_r = 1;
-   assign coin_c = 1;
-   assign coin_l = 1;
-   assign self_test = 1;
-   assign cocktail = 0;
-   assign slam = 1;
-   assign start1 = 1;
-   assign start2 = 1;
-   assign fire2 = 1;
-   assign fire1 = 1;
-*/
-//   assign playerinput_i = { coin_r, coin_c, coin_l, self_test, cocktail, slam, ~mstart1, ~mstart2, 1'b1, ~mfire };
-   assign playerinput_i = { 1'b1, 1'b1, ~(m_coin|btn_coin_2|btn_coin_1), m_test, status[12], m_slam, ~(m_start2|btn_start_2), ~(m_start1|btn_start_1), ~m_fire_2, ~m_fire };
-	
-	
-	assign joystick_i = { ~m_right,~m_left,~m_down,~m_up, ~m_right_2,~m_left_2,~m_down_2,~m_up_2};
-//   assign playerinput_i = 10'b111_101_11_11;
-
-
-
-
-	wire reset;
-assign reset = (RESET | status[0] | buttons[1] | ioctl_download);
-wire clk_6_o;
-	
-   // game & cpu
-   centipede uut(
-		 .clk_12mhz(clk_12),
-		 .clk_100mhz(clk_100mhz),
- 		 .reset(reset),
-		 .playerinput_i(playerinput_i),
-		 .trakball_i(trakball_i),
-		 .joystick_i(joystick_i),
-		 .sw1_i(m_dip),
-		 .sw2_i(sw2_i),
-		 .led_o(led_o),
-		 .audio_o(audio),
-
-	     .dn_addr(ioctl_addr[15:0]),
-        .dn_data(ioctl_dout),
-        .dn_wr(ioctl_wr),
-	 
-		 
-		 .rgb_o(rgb),
-		 .sync_o(),
-		 .hsync_o(hs),
-		 .vsync_o(vs),
-		 .hblank_o(hblank),
-		 .vblank_o(vblank),
-	    .clk_6mhz_o(clk_6_o)
-
-		 /*
-		 
-		 .rgb_o(cga_rgb),
-		 .sync_o(cga_csync),
-		 .hsync_o(cga_hsync),
-		 .vsync_o(cga_vsync),
-		 .hblank_o(cga_hblank),
-		 .vblank_o(cga_vblank),
-*/
-		 );
-
+reg  [26:0] act_cnt;
+always @(posedge CLK_32M) act_cnt <= act_cnt + 1'd1; 
+assign LED_USER    = act_cnt[26]  ? act_cnt[25:18]  > act_cnt[7:0]  : act_cnt[25:18]  <= act_cnt[7:0];
 
 endmodule

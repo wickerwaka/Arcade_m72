@@ -49,4 +49,5 @@ IC: 76
 Video counter?
 
 
+PIC Init: A0=0 D=17 D=00 A0=1 D=20 D=00 D=0F D=00 
 

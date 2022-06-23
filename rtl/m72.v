@@ -1,12 +1,10 @@
 `timescale 1 ns / 1 ns
 
 module m72 (
-	input clock,
+	input CLK_32M,
 	input sys_clk,
 	input reset_n,
-	input ce_pix,
-	
-	input pixel_clock,
+	output ce_pix,
 	
 	input z80_reset_n,
 
@@ -26,10 +24,37 @@ module m72 (
 	input [24:0] ioctl_addr,
 	input [7:0]  ioctl_dout,
 
-	input [11:0] force_code
+	input [1:0] coin,
+	input [1:0] start_buttons,
+	input [3:0] p1_joystick,
+	input [3:0] p2_joystick,
+	input [3:0] p1_buttons,
+	input [3:0] p2_buttons,
+	input service_button,
+	input [15:0] dip_sw,
+
+	output [1:0] sdr_wr_sel1,
+	output [15:0] sdr_din1,
+	input [15:0] sdr_dout1,
+	output [24:1] sdr_addr1,
+	output sdr_req1,
+	input sdr_ack1,
+
+	output [1:0] sdr_wr_sel2,
+	output [15:0] sdr_din2,
+	input [15:0] sdr_dout2,
+	output [24:1] sdr_addr2,
+	output sdr_req2,
+	input sdr_ack2
 );
 
-wire CLK_32M = clock;
+// Divide 32Mhz clock by 4 for pixel clock
+reg [1:0] clk_div;
+always @(posedge CLK_32M) clk_div <= clk_div + 2'd1;
+assign ce_pix = clk_div == 2'b01;
+
+wire clock = CLK_32M;
+
 
 /* Global signals from schematics */
 wire M_IO = ~cpu_iorq; // high = memory low = IO
@@ -40,7 +65,7 @@ wire MRD = ~cpu_iorq & ~cpu_we & stb; // Mem Read
 
 wire TNSL;
 
-reg wb_ack_o;
+reg wb_ack_o = 0;
 wire stb, cyc;
 reg [19:0] pc;
 
@@ -56,14 +81,39 @@ wire cpu_int_ack;
 
 // add 1 cycle wait to acknowledge
 reg wb_ack_wait = 0;
-always @(posedge clock or negedge reset_n)
+reg [15:0] rom_ram_data = 0;
+
+always @(posedge CLK_32M or negedge reset_n)
 begin
 	if (!reset_n) begin
 		wb_ack_o <= 0;
 		wb_ack_wait <= 0;
 	end else begin
-		if (stb) wb_ack_wait <= ~wb_ack_wait;
-		wb_ack_o <= stb & wb_ack_wait;
+		if (stb) begin
+			if (wb_ack_o) begin
+				wb_ack_o <= 0;
+				wb_ack_wait <= 0;
+			end else begin
+				if (ls245_en) begin // sdram request
+					if (wb_ack_wait) begin
+						wb_ack_o <= (sdr_ack1 == sdr_req1);
+						wb_ack_wait <= ~(sdr_ack1 == sdr_req1);
+						rom_ram_data <= sdr_dout1;
+					end else begin
+						wb_ack_wait <= 1;
+						sdr_addr1 <= rom0_ce ? { 2'b00, cpu_addr[16:1] } :
+							rom1_ce ? { 2'b01, cpu_addr[16:1] } :
+							{ 2'b10, cpu_addr[16:1] };
+						sdr_wr_sel1 <= ( cpu_we & ram_cs2 ) ? cpu_sel : 2'b00;
+						sdr_req1 <= ~sdr_ack1;
+						sdr_din1 <= cpu_dout;
+					end
+				end else begin
+					wb_ack_wait <= 1;
+					wb_ack_o <= wb_ack_wait;
+				end
+			end
+		end
 	end
 end
 
@@ -71,7 +121,7 @@ zet zet_inst (
 	.pc (pc),	// output [19:0]
 
 	// Wishbone master interface
-	.wb_clk_i ( clock ),		// input wb_clk_i
+	.wb_clk_i ( CLK_32M ),		// input wb_clk_i
 	.wb_rst_i ( !reset_n ),		// input wb_rst_i
 	.wb_dat_i ( cpu_din ),		// input [15:0] wb_dat_i
 	.wb_dat_o ( cpu_dout ),		// output [15:0] wb_dat_o
@@ -88,20 +138,18 @@ zet zet_inst (
 	.nmia     ( cpu_nmi_ack )			// output nmia
 );
 
-wire [7:0] dout_h0, dout_l0, dout_h1, dout_l1, dout_hr, dout_lr;
 wire ioctl_h0_cs, ioctl_h1_cs, ioctl_l0_cs, ioctl_l1_cs;
 wire [3:0] ioctl_gfx_a_cs;
 wire [3:0] ioctl_gfx_b_cs;
 wire [7:0] ioctl_sprite_cs;
 
-
 wire ls245_en, rom0_ce, rom1_ce, ram_cs2;
 
-wire [15:0] rom_ram_data = rom0_ce ? { dout_h0, dout_l0 } :
-							rom1_ce ? { dout_h1, dout_l1 } :
-							ram_cs2 ? { dout_hr, dout_lr } : 16'hffff;
 
 reg [15:0] pic;
+
+wire [15:0] switches = { p2_buttons, p2_joystick, p1_buttons, p1_joystick };
+wire [15:0] flags = { 8'hff, TNSL, 1'b1, 1'b1 /*TEST*/, 1'b1 /*R*/, coin, start_buttons };
 
 wire [15:0] cpu_din =
 	(vblank_trig && cpu_int_ack) ? 16'h0020 :
@@ -111,9 +159,9 @@ wire [15:0] cpu_din =
 	sound_dout_valid ? sound_dout :
 	sprite_dout_valid ? sprite_dout :
 	ls245_en ? rom_ram_data : 
-	SW ? 16'hffff : // TODO player inputs
-	FLAG ? 16'hffff : // TODO test, start and tnsl
-	DSW ? 16'hfeff : // TODO DIP Switches
+	SW ? switches :
+	FLAG ? flags :
+	DSW ? dip_sw :
 	INTCS ? pic : // TODO PIC
 	16'hffff;
 
@@ -188,83 +236,6 @@ download_selector download_selector(
 	.sprite_cs(ioctl_sprite_cs)
 );
 
-eprom_64 rom_h0(
-	.clk(clock),
-	.addr(cpu_addr[16:1]),
-	.data(dout_h0),
-
-	.clk_in(sys_clk),
-	.addr_in(ioctl_addr[15:0]),
-	.data_in(ioctl_dout),
-	.wr_in(ioctl_wr),
-	.cs_in(ioctl_h0_cs)
-);
-
-eprom_64 rom_l0(
-	.clk(clock),
-	.addr(cpu_addr[16:1]),
-	.data(dout_l0),
-
-	.clk_in(sys_clk),
-	.addr_in(ioctl_addr[15:0]),
-	.data_in(ioctl_dout),
-	.wr_in(ioctl_wr),
-	.cs_in(ioctl_l0_cs)
-);
-
-eprom_64 rom_h1(
-	.clk(clock),
-	.addr(cpu_addr[16:1]),
-	.data(dout_h1),
-
-	.clk_in(sys_clk),
-	.addr_in(ioctl_addr[15:0]),
-	.data_in(ioctl_dout),
-	.wr_in(ioctl_wr),
-	.cs_in(ioctl_h1_cs)
-);
-
-eprom_64 rom_l1(
-	.clk(clock),
-	.addr(cpu_addr[16:1]),
-	.data(dout_l1),
-
-	.clk_in(sys_clk),
-	.addr_in(ioctl_addr[15:0]),
-	.data_in(ioctl_dout),
-	.wr_in(ioctl_wr),
-	.cs_in(ioctl_l1_cs)
-);
-
-dpramv #(.widthad_a(13)) ram_h
-(
-	.clock_a(clock),
-	.address_a(cpu_addr[13:1]),
-	.q_a(dout_hr),
-	.wren_a(ram_cs2 & cpu_we & cpu_sel[1] & ls245_en),
-	.data_a(cpu_dout[15:8]),
-
-	.clock_b(clock),
-	.address_b(),
-	.data_b(),
-	.wren_b(),
-	.q_b()
-);
-
-dpramv #(.widthad_a(13)) ram_l
-(
-	.clock_a(clock),
-	.address_a(cpu_addr[13:1]),
-	.q_a(dout_lr),
-	.wren_a(ram_cs2 & cpu_we & cpu_sel[0] & ls245_en),
-	.data_a(cpu_dout[7:0]),
-
-	.clock_b(clock),
-	.address_b(),
-	.data_b(),
-	.wren_b(),
-	.q_b()
-);
 
 /*
 pic pic_inst (
@@ -384,7 +355,7 @@ assign VGA_VB = VBLK;
 kna70h015 kna70h015(
 	.CLK_32M(CLK_32M),
 
-	.DCLK(pixel_clock),
+	.DCLK(ce_pix),
 	.D(cpu_dout),
 	.ISET(ISET),
 	.NL(0),
@@ -421,7 +392,7 @@ board_b_d board_b_d(
     .gfx_a_cs(ioctl_gfx_a_cs),
     .gfx_b_cs(ioctl_gfx_b_cs),
 
-    .DCLK(pixel_clock),
+    .DCLK(ce_pix),
 
     .DOUT(b_d_dout),
 	.DOUT_VALID(b_d_dout_valid),
@@ -441,13 +412,13 @@ board_b_d board_b_d(
     .HE(HE),
 
 
-//	.RED(VGA_R),
-//	.GREEN(VGA_G),
-//	.BLUE(VGA_B),
+	//.RED(VGA_R),
+	.GREEN(VGA_G),
+	.BLUE(VGA_B),
 
 	.RED(),
-	.GREEN(),
-	.BLUE()
+//	.GREEN(),
+//	.BLUE()
 );
 
 
@@ -475,7 +446,7 @@ wire obj_pal_dout_valid;
 
 wire [4:0] obj_r, obj_g, obj_b;
 kna91h014 obj_pal(
-    .DCLK(pixel_clock),
+    .DCLK(ce_pix),
     .CLK_32M(CLK_32M),
 
     .G(OBJ_P),
@@ -504,8 +475,8 @@ kna91h014 obj_pal(
 //assign VGA_B = {obj_b[4:0], obj_b[4:2]};
 
 assign VGA_R = {pix_test[3:0], pix_test[3:0]};
-assign VGA_G = {pix_test[3:0], pix_test[3:0]};
-assign VGA_B = {pix_test[3:0], pix_test[3:0]};
+//assign VGA_G = {pix_test[3:0], pix_test[3:0]};
+//assign VGA_B = {pix_test[3:0], pix_test[3:0]};
 
 wire [15:0] sprite_dout;
 wire sprite_dout_valid;
@@ -543,7 +514,12 @@ sprite sprite(
 	.ioctl_dout(ioctl_dout),
     .sprite_cs(ioctl_sprite_cs),
 
-	.force_code(force_code)
+	.sdr_wr_sel(sdr_wr_sel2),
+	.sdr_din(sdr_din2),
+	.sdr_dout(sdr_dout2),
+	.sdr_addr(sdr_addr2),
+	.sdr_req(sdr_req2),
+	.sdr_ack(sdr_ack2)
 );
 
 

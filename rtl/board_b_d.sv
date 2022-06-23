@@ -83,6 +83,7 @@ board_b_d_layer layer_a(
     .COL(COLA)
 );
 
+
 board_b_d_layer layer_b(
     .sys_clk(sys_clk),
     .ioctl_wr(ioctl_wr),
@@ -111,6 +112,7 @@ board_b_d_layer layer_b(
     .BIT(BITB),
     .COL(COLB)
 );
+
 
 wire [4:0] r_out, g_out, b_out;
 wire [15:0] pal_dout;

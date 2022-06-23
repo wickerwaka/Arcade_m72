@@ -13,9 +13,6 @@ rmdir /s /q .qsys_edit
 rmdir /s /q hps_isw_handoff
 rmdir /s /q sys\.qsys_edit
 rmdir /s /q sys\vip
-rmdir /s /q verilator\x64
-rmdir /s /q verilator\obj_dir
-rmdir /s /q verilator\.vs
 for /d %%i in (sys\*_sim) do rmdir /s /q "%%i"
 for /d %%i in (rtl\*_sim) do rmdir /s /q "%%i"
 del build_id.v

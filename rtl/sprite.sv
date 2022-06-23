@@ -29,8 +29,16 @@ module sprite (
 
     input [7:0] sprite_cs,
 
-    input [11:0] force_code
+    output [1:0] sdr_wr_sel,
+	output [15:0] sdr_din,
+	input [15:0] sdr_dout,
+	output [24:1] sdr_addr,
+	output sdr_req,
+	input sdr_ack
 );
+
+assign sdr_wr_sel = 2'b00;
+assign sdr_din = 0;
 
 wire [7:0] dout_h, dout_l;
 
@@ -96,7 +104,7 @@ always_ff @(posedge CLK_32M) begin
 
     if (~TNSL) begin
         dma_counter <= dma_counter + 10'd1;
-        if (dma_counter == 10'hff) TNSL <= 1;
+        if (dma_counter == 10'h1ff) TNSL <= 1;
     end
 end
 
@@ -107,9 +115,9 @@ wire [14:0] rom_read_addr32 = { code[9:0], rx, ry[3:0] };
 wire [7:0] rom_read_1h, rom_read_1j, rom_read_1k, rom_read_1l, rom_read_3h, rom_read_3j, rom_read_3k, rom_read_3l;
 
 wire [7:0] RD3 = S ? rom_read_1j : rom_read_1h;
-wire [7:0] RD2 = S ? rom_read_1l : rom_read_1k;
-wire [7:0] RD1 = S ? rom_read_3j : rom_read_3h;
-wire [7:0] RD0 = S ? rom_read_3l : rom_read_3k;
+wire [7:0] RD2 = RD3; //S ? rom_read_1l : rom_read_1k;
+wire [7:0] RD1 = RD3; //S ? rom_read_3j : rom_read_3h;
+wire [7:0] RD0 = RD3; //S ? rom_read_3l : rom_read_3k;
 
 reg [15:0] obj_fetch[4];
 wire [8:0] obj_addr = obj_cycle[10:2];
@@ -169,16 +177,19 @@ line_buffer line_buffer_v1(
 
 assign pix_test = VE[0] ? pix_out_v0 : pix_out_v1;
 
-reg old_hblk;
+reg old_v0;
 reg [31:0] pix_shift;
 reg [15:0] obj_code;
 
 always_ff @(posedge CLK_32M) begin
-    if (HBLK & ~old_hblk) obj_cycle <= 0;
-    old_hblk <= HBLK;
+    if (old_v0 != VE[0])
+        obj_cycle <= 0;
+    else
+        obj_cycle <= obj_cycle + 11'd1;
+        
+    old_v0 <= VE[0];
 
     if (obj_cycle[1:0] == 2'b10) obj_fetch[obj_cycle[3:2]] <= obj_data;
-    obj_cycle <= obj_cycle + 11'd1;
 
     pix_a_valid <= 0;
     pix_b_valid <= 0;
@@ -217,12 +228,9 @@ always_ff @(posedge CLK_32M) begin
     if (obj_cycle[3:0] == 15) begin
         rx <= 0;
         if (width_px == 0) begin
-            sy <= obj_fetch[0][8:0];
+            sy <= 512 - obj_fetch[0][8:0];
             ry <= VE - obj_fetch[0][8:0];
-            if (force_code == 0)
-                obj_code <= obj_fetch[1];
-            else
-                obj_code <= force_code;
+            obj_code <= obj_fetch[1];
             color <= obj_fetch[2][3:0];
             flipy <= obj_fetch[2][10];
             flipx <= obj_fetch[2][11];
@@ -234,6 +242,7 @@ always_ff @(posedge CLK_32M) begin
         end else begin
             width_px <= width_px - 9'd16;
             obj_code <= obj_code + 8;
+            sprite_x <= sprite_x + 10'd2;
         end
     end
 end
@@ -244,6 +253,20 @@ always_ff @(posedge CLK_32M) begin
         if (HBLK) scan_x <= 256;
     end
 end
+
+/*
+reg cached_code = 0;
+reg cached_width = 0;
+reg fetched_width = 0;
+reg [31:0] cached_words[2 * 16];
+
+always_ff @(posedge CLK_32M) begin
+    if (code != cached_code ||)
+    if (sdr_ack != sdr_req) begin
+    end
+*/
+
+
 
 eprom_64 rom_1h(
 	.clk(CLK_32M),
@@ -257,6 +280,7 @@ eprom_64 rom_1h(
 	.cs_in(sprite_cs[0])
 );
 
+
 eprom_32 rom_1j(
 	.clk(CLK_32M),
 	.addr(rom_read_addr32),
@@ -269,7 +293,7 @@ eprom_32 rom_1j(
 	.cs_in(sprite_cs[1])
 );
 
-eprom_64 rom_1k(
+/*eprom_64 rom_1k(
 	.clk(CLK_32M),
 	.addr(rom_read_addr64),
 	.data(rom_read_1k),
@@ -279,8 +303,9 @@ eprom_64 rom_1k(
 	.data_in(ioctl_dout),
 	.wr_in(ioctl_wr),
 	.cs_in(sprite_cs[2])
-);
+);*/
 
+/*
 eprom_32 rom_1l(
 	.clk(CLK_32M),
 	.addr(rom_read_addr32),
@@ -291,9 +316,9 @@ eprom_32 rom_1l(
 	.data_in(ioctl_dout),
 	.wr_in(ioctl_wr),
 	.cs_in(sprite_cs[3])
-);
+);*/
 
-eprom_64 rom_3h(
+/*eprom_64 rom_3h(
 	.clk(CLK_32M),
 	.addr(rom_read_addr64),
 	.data(rom_read_3h),
@@ -303,9 +328,9 @@ eprom_64 rom_3h(
 	.data_in(ioctl_dout),
 	.wr_in(ioctl_wr),
 	.cs_in(sprite_cs[4])
-);
+);*/
 
-eprom_32 rom_3j(
+/*eprom_32 rom_3j(
 	.clk(CLK_32M),
 	.addr(rom_read_addr32),
 	.data(rom_read_3j),
@@ -315,8 +340,8 @@ eprom_32 rom_3j(
 	.data_in(ioctl_dout),
 	.wr_in(ioctl_wr),
 	.cs_in(sprite_cs[5])
-);
-
+);*/
+/*
 eprom_64 rom_3k(
 	.clk(CLK_32M),
 	.addr(rom_read_addr64),
@@ -327,8 +352,9 @@ eprom_64 rom_3k(
 	.data_in(ioctl_dout),
 	.wr_in(ioctl_wr),
 	.cs_in(sprite_cs[6])
-);
+);*/
 
+/*
 eprom_32 rom_3l(
 	.clk(CLK_32M),
 	.addr(rom_read_addr32),
@@ -339,7 +365,8 @@ eprom_32 rom_3l(
 	.data_in(ioctl_dout),
 	.wr_in(ioctl_wr),
 	.cs_in(sprite_cs[7])
-);
+);*/
+
 
 endmodule
 

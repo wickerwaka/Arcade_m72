@@ -145,3 +145,50 @@ module eprom_32
         .q_b()
 	);
 endmodule
+
+module eprom_32_32
+(
+	input logic        clk,
+	input logic [14:0] addr,
+	output logic [31:0] data,
+
+
+	input logic        clk_in,
+	input logic [16:0] addr_in,
+	input logic [7:0]  data_in,
+	input logic        cs_in,
+	input logic        wr_in
+);
+	reg [31:0] buffer;
+	reg buffer_wr;
+
+	always @(posedge clk_in) begin
+		buffer_wr <= 0;
+		if (wr_in & cs_in) begin
+			case (addr_in[1:0])
+			0: buffer[7:0] <= data_in;
+			1: buffer[15:8] <= data_in;
+			2: buffer[23:16] <= data_in;
+			3: begin
+				buffer[31:24] <= data_in;
+				buffer_wr <= 1;
+			end
+			endcase
+		end
+	end
+
+	dpramv #(.widthad_a(15), .width_a(32)) eprom_32_32
+	(
+		.clock_a(clk),
+		.address_a(addr),
+		.q_a(data),
+        .wren_a(0),
+        .data_a(),
+
+		.clock_b(clk_in),
+		.address_b(addr_in[16:2]),
+		.data_b(buffer),
+		.wren_b(buffer_wr),
+        .q_b()
+	);
+endmodule

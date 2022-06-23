@@ -36,20 +36,21 @@ reg [width_a-1:0] ram[(2**widthad_a)-1:0];
 
 // Port A
 always @(posedge clock_a) begin
-  q_a <= ram[address_a];
-
   if (wren_a) begin
     ram[address_a] <= data_a;
     q_a <= data_a;
+  end else begin
+      q_a <= ram[address_a];
   end
 end
 
 // Port B
 always @(posedge clock_b) begin
-    q_b      <= ram[address_b];
     if(wren_b) begin
         q_b      <= data_b;
         ram[address_b] <= data_b;
+    end else begin
+        q_b <= ram[address_b];
     end
 end
 

@@ -34,8 +34,9 @@ wire A_H = A[11];
 // Col (CA / CB) input mux...
 wire [7:0] col_mux = (SELECT) ? CA : CB;		// Choose CA input when SELECT (S) is High. 
 
-// Addr mux...
-wire [7:0] addr_mux = G ? A_IN : col_mux;	// Use CPU address when G_N is Low, else use col_mux as the address.
+reg [7:0] addr_mux;
+
+always @(posedge CLK_32M) addr_mux <= G ? A_IN : col_mux;	// Use CPU address when G_N is Low, else use col_mux as the address.
 
 // Palette RAMs...
 reg [4:0] ram_a [0:255];
@@ -55,33 +56,41 @@ wire ram_wr_a = ram_a_cs & wr_ena;
 wire ram_wr_b = ram_b_cs & wr_ena;
 wire ram_wr_c = ram_c_cs & wr_ena;
 
-always @(posedge CLK_32M) begin
-	if (ram_wr_a) ram_a[addr_mux] <= DIN[4:0];
-	if (ram_wr_b) ram_b[addr_mux] <= DIN[4:0];
-	if (ram_wr_c) ram_c[addr_mux] <= DIN[4:0];
+reg [4:0] red_lat;
+reg [4:0] grn_lat;
+reg [4:0] blu_lat;
+
+always @(posedge CLK_32M)
+begin
+	if (ram_wr_a)
+		ram_a[addr_mux] <= DIN[4:0];
+	else
+		red_lat <= ram_a[addr_mux];
+
+	if (ram_wr_b)
+		ram_b[addr_mux] <= DIN[4:0];
+	else
+		grn_lat <= ram_b[addr_mux];
+
+	if (ram_wr_c)
+		ram_c[addr_mux] <= DIN[4:0];
+	else
+		blu_lat <= ram_c[addr_mux];
 end
 
 // DOUT read driver...
 assign DOUT = { 11'd0,
-	(ram_a_cs & rd_ena) ? ram_a[addr_mux] :
-	(ram_b_cs & rd_ena) ? ram_b[addr_mux] :
-	(ram_c_cs & rd_ena) ? ram_c[addr_mux] : 5'h00 };
+	(ram_a_cs & rd_ena) ? red_lat :
+	(ram_b_cs & rd_ena) ? grn_lat :
+	(ram_c_cs & rd_ena) ? blu_lat : 5'h00 };
 assign DOUT_VALID = rd_ena;
 
 // Latch RAM outputs...
-reg [4:0] red_lat;
-reg [4:0] grn_lat;
-reg [4:0] blu_lat;
-always @(posedge DCLK) red_lat <= ram_a[addr_mux];
-always @(posedge DCLK) grn_lat <= ram_b[addr_mux];
-always @(posedge DCLK) blu_lat <= ram_c[addr_mux];
 
-// Output drivers to RGB DACs...
-wire blank = 1'b0;	// Todo.
-assign RED = (!blank) ? red_lat : 5'h00;
-assign GRN = (!blank) ? grn_lat : 5'h00;
-assign BLU = (!blank) ? blu_lat : 5'h00;
-
-//assign BLU = col_mux[4:0];
+always @(posedge DCLK) begin
+	RED <= red_lat;
+	GRN <= grn_lat;
+	BLU <= blu_lat;
+end
 
 endmodule

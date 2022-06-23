@@ -61,63 +61,27 @@ dpramv #(.widthad_a(13)) ram_h
 	.q_b(ram_h_dout)
 );
 
-wire [7:0] dout_1, dout_2, dout_3, dout_4;
+wire [31:0] dout;
 
-eprom_32 rom_1(
+eprom_32_32 rom(
 	.clk(DCLK), // faster clock
 	.addr({COD[11:0], RV[2:0]}),
-	.data(dout_1),
+	.data(dout),
 
 	.clk_in(sys_clk),
-	.addr_in(ioctl_addr[14:0]),
+	.addr_in(ioctl_addr[16:0]),
 	.data_in(ioctl_dout),
 	.wr_in(ioctl_wr),
-	.cs_in(gfx_cs[0])
-);
-
-eprom_32 rom_2(
-	.clk(DCLK), // faster clock
-	.addr({COD[11:0], RV[2:0]}),
-	.data(dout_2),
-
-	.clk_in(sys_clk),
-	.addr_in(ioctl_addr[14:0]),
-	.data_in(ioctl_dout),
-	.wr_in(ioctl_wr),
-	.cs_in(gfx_cs[1])
-);
-
-eprom_32 rom_3(
-	.clk(DCLK), // faster clock
-	.addr({COD[11:0], RV[2:0]}),
-	.data(dout_3),
-
-	.clk_in(sys_clk),
-	.addr_in(ioctl_addr[14:0]),
-	.data_in(ioctl_dout),
-	.wr_in(ioctl_wr),
-	.cs_in(gfx_cs[2])
-);
-
-eprom_32 rom_4(
-	.clk(DCLK), // faster clock
-	.addr({COD[11:0], RV[2:0]}),
-	.data(dout_4),
-
-	.clk_in(sys_clk),
-	.addr_in(ioctl_addr[14:0]),
-	.data_in(ioctl_dout),
-	.wr_in(ioctl_wr),
-	.cs_in(gfx_cs[3])
+	.cs_in(|gfx_cs)
 );
 
 kna6034201 kna6034201(
     .clock(DCLK),
     .load(SH[2:0] == 3'b000),
-    .byte_1(dout_1),
-    .byte_2(dout_2),
-    .byte_3(dout_3),
-    .byte_4(dout_4),
+    .byte_1(dout[7:0]),
+    .byte_2(dout[15:8]),
+    .byte_3(dout[23:16]),
+    .byte_4(dout[31:24]),
     .bit_1(BIT[0]),
     .bit_2(BIT[1]),
     .bit_3(BIT[2]),
@@ -153,7 +117,7 @@ always @(posedge DCLK) begin
     reg [8:0] sh;
 
     //SH <= { HE[9], HE[7:0] } + adj_h;
-    SV <= VE + adj_v;
+    SV <= VE; // + adj_v;
     SH <= ( HE + adj_h ); // TODO ^ { 5'b0000, {3{NL}} };
 
     if (SH[2:0] == 3'b001) { HREV, VREV, COD } <= { ram_h_dout, ram_l_dout };

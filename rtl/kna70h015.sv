@@ -81,7 +81,7 @@ always @(posedge DCLK) begin
     VS <= (v_count >= 9'd270 && v_count < 9'd276 );
 
     HE <= h_count;
-    VE <= v_count + 128;
+    VE <= v_count + 9'd128;
 end
 
 
