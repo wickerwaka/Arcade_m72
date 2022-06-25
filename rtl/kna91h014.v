@@ -9,8 +9,6 @@ module kna91h014 (
 	input E1_N,		// Pin 52.
 	input E2_N,		// Pin 51. CBLK.
 
-	input DCLK,	// Pixel clock A input. Pin 48 (or 49?)
-		
 	input G,		// Pin 30. G_N.
 	
 	input MWR,	// Pin 29.
@@ -87,10 +85,12 @@ assign DOUT_VALID = rd_ena;
 
 // Latch RAM outputs...
 
-always @(posedge DCLK) begin
-	RED <= red_lat;
-	GRN <= grn_lat;
-	BLU <= blu_lat;
+always @(posedge CLK_32M) begin
+	if (~G) begin
+		RED <= red_lat;
+		GRN <= grn_lat;
+		BLU <= blu_lat;
+	end
 end
 
 endmodule

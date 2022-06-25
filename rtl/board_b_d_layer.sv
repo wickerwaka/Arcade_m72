@@ -7,7 +7,7 @@ module board_b_d_layer(
     input [3:0] gfx_cs,
 
     input CLK_32M,
-    input DCLK,
+    input CE_PIX,
 
     input [15:0] DIN,
     output [15:0] DOUT,
@@ -24,7 +24,9 @@ module board_b_d_layer(
     input [9:0] HE,
 
     output [3:0] BIT,
-    output [3:0] COL
+    output [3:0] COL,
+    output CP15,
+    output CP8
 );
 
 assign DOUT = { dout_h, dout_l };
@@ -39,8 +41,8 @@ dpramv #(.widthad_a(13)) ram_l
 	.wren_a(WR & BYTE_SEL[0]),
 	.data_a(DIN[7:0]),
 
-	.clock_b(DCLK),
-	.address_b({SV[8:3], SH[8:3], SH[1]}),
+	.clock_b(CLK_32M),
+	.address_b({SV[8:3], SH[8:2]}),
 	.data_b(),
 	.wren_b(0),
 	.q_b(ram_l_dout)
@@ -54,8 +56,8 @@ dpramv #(.widthad_a(13)) ram_h
 	.wren_a(WR & BYTE_SEL[1]),
 	.data_a(DIN[15:8]),
 
-	.clock_b(DCLK),
-	.address_b({SV[8:3], SH[8:3], SH[1]}),
+	.clock_b(CLK_32M),
+	.address_b({SV[8:3], SH[8:2]}),
 	.data_b(),
 	.wren_b(0),
 	.q_b(ram_h_dout)
@@ -64,7 +66,7 @@ dpramv #(.widthad_a(13)) ram_h
 wire [31:0] dout;
 
 eprom_32_32 rom(
-	.clk(DCLK), // faster clock
+	.clk(CLK_32M),
 	.addr({COD[11:0], RV[2:0]}),
 	.data(dout),
 
@@ -76,8 +78,8 @@ eprom_32_32 rom(
 );
 
 kna6034201 kna6034201(
-    .clock(DCLK),
-    .load(SH[2:0] == 3'b000),
+    .clock(CLK_32M),
+    .SH(SH[3:0]),
     .byte_1(dout[7:0]),
     .byte_2(dout[15:8]),
     .byte_3(dout[23:16]),
@@ -107,24 +109,29 @@ wire [2:0] RV = SV[2:0] ^ {3{VREV}};
 wire [7:0] ram_h_dout, ram_l_dout;
 
 assign COL = row_data[3:0];
+assign CP15 = row_data[7];
+assign CP8 = row_data[6];
+
 
 always @(posedge CLK_32M) begin // might need a faster clock
     if (VSCK & BYTE_SEL[0]) adj_v <= DIN[8:0];
     if (HSCK & BYTE_SEL[0]) adj_h <= DIN[8:0];
 end
 
-always @(posedge DCLK) begin
+always @(posedge CLK_32M) begin
     reg [8:0] sh;
 
-    //SH <= { HE[9], HE[7:0] } + adj_h;
-    SV <= VE; // + adj_v;
-    SH <= ( HE + adj_h ); // TODO ^ { 5'b0000, {3{NL}} };
+    if (1) begin
+        //SH <= { HE[9], HE[7:0] } + adj_h;
+        SV <= VE; // + adj_v;
+        SH <= ( HE + adj_h ); // TODO ^ { 5'b0000, {3{NL}} };
 
-    if (SH[2:0] == 3'b001) { HREV, VREV, COD } <= { ram_h_dout, ram_l_dout };
-    //if (SH[2:1] == 2'b00) COD <= { SV[:3], SH[9:3] };
+        if (SH[2:0] == 3'b001) { HREV, VREV, COD } <= { ram_h_dout, ram_l_dout };
+        //if (SH[2:1] == 2'b00) COD <= { SV[:3], SH[9:3] };
 
-    if (SH[2:0] == 3'b100) row_data1 <= ram_l_dout;
-    if (SH[2:0] == 3'b000) row_data <= row_data1;
+        if (SH[2:0] == 3'b101) row_data1 <= ram_l_dout;
+        if (SH[2:0] == 3'b001) row_data <= row_data1;
+    end
 end
 
 // TODO SLDA ?

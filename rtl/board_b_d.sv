@@ -8,7 +8,7 @@ module board_b_d (
     input [3:0] gfx_b_cs,
 
     input CLK_32M,
-    input DCLK,
+    input CE_PIX,
 
     output [15:0] DOUT,
     output DOUT_VALID,
@@ -48,6 +48,7 @@ wire [3:0] BITA;
 wire [3:0] BITB;
 wire [3:0] COLA;
 wire [3:0] COLB;
+wire CP15A, CP15B, CP8A, CP8B;
 
 wire [15:0] DOUT_A, DOUT_B;
 
@@ -63,7 +64,7 @@ board_b_d_layer layer_a(
     .gfx_cs(gfx_a_cs),
 
     .CLK_32M(CLK_32M),
-    .DCLK(DCLK),
+    .CE_PIX(CE_PIX),
 
     .DOUT(DOUT_A),
     .DIN(DIN),
@@ -80,7 +81,9 @@ board_b_d_layer layer_a(
     .HE(HE),
 
     .BIT(BITA),
-    .COL(COLA)
+    .COL(COLA),
+    .CP15(CP15A),
+    .CP8(CP8A)
 );
 
 
@@ -93,7 +96,7 @@ board_b_d_layer layer_b(
     .gfx_cs(gfx_b_cs),
 
     .CLK_32M(CLK_32M),
-    .DCLK(DCLK),
+    .CE_PIX(CE_PIX),
 
     .DOUT(DOUT_B),
     .DIN(DIN),
@@ -110,7 +113,9 @@ board_b_d_layer layer_b(
     .HE(HE),
 
     .BIT(BITB),
-    .COL(COLB)
+    .COL(COLB),
+    .CP15(CP15B),
+    .CP8(CP8B)
 );
 
 
@@ -118,10 +123,14 @@ wire [4:0] r_out, g_out, b_out;
 wire [15:0] pal_dout;
 wire pal_dout_valid;
 
-wire S = BITA != 4'b0000;
+wire a_opaque = BITA != 4'b0000;
+wire b_opaque = BITB != 4'b0000;
+
+wire S = a_opaque;
+
+wire P1L = ~(CP15A & a_opaque) & ~(CP15B & b_opaque) & ~(CP8A & BITA[3]) & ~(CP8B & BITB[3]);
 
 kna91h014 kna91h014(
-    .DCLK(DCLK),
     .CLK_32M(CLK_32M),
 
     .G(CHARA_P),

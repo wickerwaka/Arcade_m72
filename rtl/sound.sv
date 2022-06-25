@@ -18,7 +18,7 @@ wire [7:0] dout_h, dout_l;
 assign DOUT = { dout_h, dout_l };
 assign DOUT_VALID = MRD & SDBEN;
 
-/*
+
 dpramv #(.widthad_a(15)) ram_h
 (
 	.clock_a(CLK_32M),
@@ -48,6 +48,6 @@ dpramv #(.widthad_a(15)) ram_l
 	.wren_b(0),
 	.q_b()
 );
-*/
+
 
 endmodule

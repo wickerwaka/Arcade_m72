@@ -2,6 +2,8 @@
 
 module m72 (
 	input CLK_32M,
+	input CLK_96M,
+
 	input sys_clk,
 	input reset_n,
 	output ce_pix,
@@ -355,7 +357,7 @@ assign VGA_VB = VBLK;
 kna70h015 kna70h015(
 	.CLK_32M(CLK_32M),
 
-	.DCLK(ce_pix),
+	.CE_PIX(ce_pix),
 	.D(cpu_dout),
 	.ISET(ISET),
 	.NL(0),
@@ -381,6 +383,8 @@ kna70h015 kna70h015(
 wire [15:0] b_d_dout;
 wire b_d_dout_valid;
 
+wire [4:0] char_r, char_g, char_b;
+
 board_b_d board_b_d(
 	.CLK_32M(CLK_32M),
 
@@ -392,7 +396,7 @@ board_b_d board_b_d(
     .gfx_a_cs(ioctl_gfx_a_cs),
     .gfx_b_cs(ioctl_gfx_b_cs),
 
-    .DCLK(ce_pix),
+    .CE_PIX(ce_pix),
 
     .DOUT(b_d_dout),
 	.DOUT_VALID(b_d_dout_valid),
@@ -412,11 +416,11 @@ board_b_d board_b_d(
     .HE(HE),
 
 
-	//.RED(VGA_R),
-	.GREEN(VGA_G),
-	.BLUE(VGA_B),
+	.RED(char_r),
+	.GREEN(char_g),
+	.BLUE(char_b)
 
-	.RED(),
+//	.RED()
 //	.GREEN(),
 //	.BLUE()
 );
@@ -446,7 +450,6 @@ wire obj_pal_dout_valid;
 
 wire [4:0] obj_r, obj_g, obj_b;
 kna91h014 obj_pal(
-    .DCLK(ce_pix),
     .CLK_32M(CLK_32M),
 
     .G(OBJ_P),
@@ -470,11 +473,16 @@ kna91h014 obj_pal(
     .BLU(obj_b)
 );
 
-//assign VGA_R = {obj_r[4:0], obj_r[4:2]};
-//assign VGA_G = {obj_g[4:0], obj_g[4:2]};
-//assign VGA_B = {obj_b[4:0], obj_b[4:2]};
+wire P0L = |pix_test[3:0];
 
-assign VGA_R = {pix_test[3:0], pix_test[3:0]};
+assign VGA_R = P0L ? {obj_r[4:0], obj_r[4:2]} : {char_r[4:0], char_r[4:2]};
+assign VGA_G = P0L ? {obj_g[4:0], obj_g[4:2]} : {char_g[4:0], char_g[4:2]};
+assign VGA_B = P0L ? {obj_b[4:0], obj_b[4:2]} : {char_b[4:0], char_b[4:2]};
+//assign VGA_R = {char_r[4:0], char_r[4:2]};
+//assign VGA_G = {char_g[4:0], char_g[4:2]};
+//assign VGA_B = {char_b[4:0], char_b[4:2]};
+
+//assign VGA_R = {pix_test[3:0], pix_test[3:0]};
 //assign VGA_G = {pix_test[3:0], pix_test[3:0]};
 //assign VGA_B = {pix_test[3:0], pix_test[3:0]};
 
@@ -487,6 +495,7 @@ wire [7:0] pix_test;
 
 sprite sprite(
 	.CLK_32M(CLK_32M),
+	.CLK_96M(CLK_96M),
 	.CE_PIX(ce_pix),
 
 	.DIN(cpu_dout),
@@ -505,14 +514,10 @@ sprite sprite(
 	.HBLK(HBLK),
 	.pix_test(pix_test),
 
+	.base_address('h80000),
+
 	.TNSL(TNSL),
 	.DMA_ON(DMA_ON),
-
-	.sys_clk(sys_clk),
-    .ioctl_wr(ioctl_wr),
-	.ioctl_addr(ioctl_addr),
-	.ioctl_dout(ioctl_dout),
-    .sprite_cs(ioctl_sprite_cs),
 
 	.sdr_wr_sel(sdr_wr_sel2),
 	.sdr_din(sdr_din2),

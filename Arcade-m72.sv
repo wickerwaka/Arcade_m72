@@ -327,7 +327,7 @@ always @(posedge clk_sys) begin
 
 	if(~old_reset && reset) ioctl_wait <= 0;
 
-	if (ioctl_wr & ~ioctl_index) begin
+	if (ioctl_wr && !ioctl_index) begin
 		ioctl_wait <= 1;
 		ioctl_rom_wr <= ~ioctl_rom_wr;
 	end else if(ioctl_wait && (ioctl_rom_wr == ioctl_rom_wrack)) begin
@@ -420,6 +420,7 @@ wire VGA_HB, VGA_VB;
 
 m72 m72(
 	.CLK_32M(CLK_32M),
+	.CLK_96M(CLK_96M),
 	.ce_pix(CE_PIXEL),
 	.reset_n(~reset),
 	.VGA_HS(VGA_HS),
@@ -446,7 +447,7 @@ m72 m72(
 	.dip_sw({~dip_sw[1], ~dip_sw[0]}),
 
 	.sys_clk(CLK_32M),
-	.ioctl_wr(ioctl_wr & ~ioctl_index),
+	.ioctl_wr(ioctl_wr && !ioctl_index),
 	.ioctl_addr(ioctl_addr),
 	.ioctl_dout(ioctl_dout),
 
