@@ -8,7 +8,7 @@ module sprite (
 	output [15:0] DOUT,
 	output DOUT_VALID,
 	
-	input [19:1] A,
+	input [19:0] A,
     input [1:0] BYTE_SEL,
 
     input BUFDBEN,
@@ -128,26 +128,36 @@ line_buffer line_buffer(
     .pixel_out(pix_test)
 );
 
+function [15:0] reverse_bytes(input [15:0] b);
+	begin
+		reverse_bytes = { b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15],
+                          b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7] };
+	end
+endfunction
+
 reg [63:0] cur_obj;
 wire [8:0] obj_org_y = cur_obj[8:0];
 wire [15:0] obj_code = cur_obj[31:16];
 wire [3:0] obj_color = cur_obj[35:32];
-wire obj_flipx = cur_obj[42];
-wire obj_flipy = cur_obj[43];
+wire obj_flipx = cur_obj[43];
+wire obj_flipy = cur_obj[42];
 wire [1:0] obj_height = cur_obj[45:44];
 wire [1:0] obj_width = cur_obj[47:46];
 wire [9:0] obj_org_x = cur_obj[57:48];
+reg [8:0] width_px, height_px;
+reg [3:0] width, height;
+reg [8:0] rel_y;
+
+wire [8:0] row_y = obj_flipy ? (height_px - rel_y) : rel_y;
 
 always_ff @(posedge CLK_96M) begin
     reg old_v0 = 0;
 
-    reg [8:0] width_px, height_px;
-    reg [3:0] width;
     reg [7:0] obj_ptr = 0;
     reg [3:0] st = 0;
-    reg [8:0] rel_y;
     reg [3:0] span;
 	reg [15:0] code;
+    reg [8:0] V;
 
     old_v0 <= VE[0];
 
@@ -155,6 +165,7 @@ always_ff @(posedge CLK_96M) begin
         // new line, reset
         obj_ptr <= 0;
         st <= 0;
+        V <= VE + 1;
     end else if (obj_ptr == 10'h80) begin
         // done, wait
         obj_ptr <= obj_ptr;
@@ -168,7 +179,8 @@ always_ff @(posedge CLK_96M) begin
             width_px <= 16 << obj_width;
             height_px <= 16 << obj_height;
             width <= 1 << obj_width;
-            rel_y <= VE - obj_org_y;
+            height <= 1 << obj_height;
+            rel_y <= V + obj_org_y + ( 16 << obj_height );
             span <= 0;
         end
         2: begin
@@ -176,23 +188,23 @@ always_ff @(posedge CLK_96M) begin
                 st <= 0;
                 obj_ptr <= obj_ptr + width;
             end
-            code <= obj_code + rel_y[8:4] + ( span * 8 );
+            code <= obj_code + row_y[8:4] + ( ( obj_flipx ? ( width - span - 1 ) : span ) * 8 );
         end
         3: begin
-            sdr_addr <= base_address[24:1] + { code[11:0], 1'b0, rel_y[3:0], 1'b0 }; // 1st 16-bit of 1st column
+            sdr_addr <= base_address[24:1] + { code[11:0], obj_flipx, row_y[3:0], 1'b0 }; // 1st 16-bit of 1st column
             sdr_req <= ~sdr_ack;
         end
         4: begin
-            line_buffer_in[15:0] <= sdr_dout;
-            sdr_addr <= base_address[24:1] + { code[11:0], 1'b0, rel_y[3:0], 1'b1 }; // 2nd 16-bit of 1st column
+            line_buffer_in[15:0] <= obj_flipx ? reverse_bytes(sdr_dout) : sdr_dout;
+            sdr_addr <= base_address[24:1] + { code[11:0], obj_flipx, row_y[3:0], 1'b1 }; // 2nd 16-bit of 1st column
             sdr_req <= ~sdr_ack;
         end
         5: begin
-            line_buffer_in[31:16] <= sdr_dout;
+            line_buffer_in[31:16] <= obj_flipx ? reverse_bytes(sdr_dout) : sdr_dout;
             if (line_buffer_req != line_buffer_ack)
                 st <= st; // wait
             else begin
-                sdr_addr <= base_address[24:1] + { code[11:0], 1'b1, rel_y[3:0], 1'b0 }; // 1st 16-bit of 2nd column
+                sdr_addr <= base_address[24:1] + { code[11:0], ~obj_flipx, row_y[3:0], 1'b0 }; // 1st 16-bit of 2nd column
                 sdr_req <= ~sdr_ack;
                 line_buffer_color <= obj_color;
                 line_buffer_x = obj_org_x + ( 16 * span );
@@ -200,12 +212,12 @@ always_ff @(posedge CLK_96M) begin
             end
         end
         6: begin
-            line_buffer_in[15:0] <= sdr_dout;
-            sdr_addr <= base_address[24:1] + { code[11:0], 1'b1, rel_y[3:0], 1'b1 }; // 2nd 16-bit of 2st column
+            line_buffer_in[15:0] <= obj_flipx ? reverse_bytes(sdr_dout) : sdr_dout;
+            sdr_addr <= base_address[24:1] + { code[11:0], ~obj_flipx, row_y[3:0], 1'b1 }; // 2nd 16-bit of 2st column
             sdr_req <= ~sdr_ack;
         end
         7: begin
-            line_buffer_in[31:16] <= sdr_dout;
+            line_buffer_in[31:16] <= obj_flipx ? reverse_bytes(sdr_dout) : sdr_dout;
             if (line_buffer_req != line_buffer_ack)
                 st <= st; // wait
             else begin
@@ -248,6 +260,7 @@ reg [1:0] scan_buffer = 0;
 reg [9:0] scan_pos = 0;
 reg [7:0] line_pixel;
 reg [9:0] line_position;
+reg line_write = 0;
 
 wire [7:0] scan_0, scan_1, scan_2;
 dpramv #(.widthad_a(10)) buffer_0
@@ -261,7 +274,7 @@ dpramv #(.widthad_a(10)) buffer_0
 	.clock_b(CLK_96M),
 	.address_b(line_position),
 	.data_b(line_pixel),
-	.wren_b(scan_buffer == 2),
+	.wren_b(scan_buffer == 2 && line_write),
 	.q_b()
 );
 
@@ -276,7 +289,7 @@ dpramv #(.widthad_a(10)) buffer_1
 	.clock_b(CLK_96M),
 	.address_b(line_position),
 	.data_b(line_pixel),
-	.wren_b(scan_buffer == 0),
+	.wren_b(scan_buffer == 0 && line_write),
 	.q_b()
 );
 
@@ -291,7 +304,7 @@ dpramv #(.widthad_a(10)) buffer_2
 	.clock_b(CLK_96M),
 	.address_b(line_position),
 	.data_b(line_pixel),
-	.wren_b(scan_buffer == 1),
+	.wren_b(scan_buffer == 1 && line_write),
 	.q_b()
 );
 
@@ -300,9 +313,12 @@ always_ff @(posedge CLK_96M) begin
     reg [3:0] color;
     reg [9:0] position;
     reg [3:0] count = 0;
+
+    line_write <= 0;
     
     if (count != 0) begin
 		line_pixel <= { color, data[31], data[23], data[15], data[7] };
+        line_write <= data[31] | data[23] | data[15] | data[7];
         line_position <= position;
         position <= position + 10'd1;
         count <= count - 4'd1;
@@ -320,7 +336,7 @@ always_ff @(posedge CLK_32M) begin
     reg old_v0 = 0;
 
     if (old_v0 != V0) begin
-        scan_pos <= 256;
+        scan_pos <= 249; // TODO why?
         old_v0 <= V0;
 
         case (scan_buffer)

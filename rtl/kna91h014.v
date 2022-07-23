@@ -18,7 +18,7 @@ module kna91h014 (
 	output [15:0] DOUT,	// Pins 25, 22-19 (split to output for Verilog).
 	output DOUT_VALID,
 	
-	input [19:1] A,	// Pins 53-60
+	input [19:0] A,	// Pins 53-60
 
 	output reg [4:0] RED,	// Pins 47-43.
 	output reg [4:0] GRN,	// Pins 42-40, 37-36.
@@ -26,25 +26,23 @@ module kna91h014 (
 );
 
 wire [7:0] A_IN = A[8:1];
-wire A_L = A[10];
-wire A_H = A[11];
+wire [2:0] A_S = { A[11], A[10], A[0] };
 
-// Col (CA / CB) input mux...
-wire [7:0] col_mux = (SELECT) ? CA : CB;		// Choose CA input when SELECT (S) is High. 
+reg [7:0] color_addr;
 
-reg [7:0] addr_mux;
-
-always @(posedge CLK_32M) addr_mux <= G ? A_IN : col_mux;	// Use CPU address when G_N is Low, else use col_mux as the address.
+always @(posedge CLK_32M) begin
+	color_addr <= SELECT ? CA : CB;
+end
 
 // Palette RAMs...
-reg [4:0] ram_a [0:255];
-reg [4:0] ram_b [0:255];
-reg [4:0] ram_c [0:255];
+reg [4:0] ram_a [256];
+reg [4:0] ram_b [256];
+reg [4:0] ram_c [256];
 
 // RAM Addr decoding...
-wire ram_a_cs = {A_H, A_L}==2'd0 | {A_H, A_L}==2'd3;
-wire ram_b_cs = {A_H, A_L}==2'd1;
-wire ram_c_cs = {A_H, A_L}==2'd2;
+wire ram_a_cs = A_S==3'b000 | A_S==3'b110;
+wire ram_b_cs = A_S==3'b010;
+wire ram_c_cs = A_S==3'b100;
 
 // Write enable, and addr decoding for RAM writes.
 wire wr_ena = G & MWR;
@@ -61,35 +59,35 @@ reg [4:0] blu_lat;
 always @(posedge CLK_32M)
 begin
 	if (ram_wr_a)
-		ram_a[addr_mux] <= DIN[4:0];
+		ram_a[A_IN] <= DIN[4:0];
 	else
-		red_lat <= ram_a[addr_mux];
+		red_lat <= ram_a[A_IN];
 
 	if (ram_wr_b)
-		ram_b[addr_mux] <= DIN[4:0];
+		ram_b[A_IN] <= DIN[4:0];
 	else
-		grn_lat <= ram_b[addr_mux];
+		grn_lat <= ram_b[A_IN];
 
 	if (ram_wr_c)
-		ram_c[addr_mux] <= DIN[4:0];
+		ram_c[A_IN] <= DIN[4:0];
 	else
-		blu_lat <= ram_c[addr_mux];
+		blu_lat <= ram_c[A_IN];
 end
 
 // DOUT read driver...
 assign DOUT = { 11'd0,
-	(ram_a_cs & rd_ena) ? red_lat :
-	(ram_b_cs & rd_ena) ? grn_lat :
-	(ram_c_cs & rd_ena) ? blu_lat : 5'h00 };
+	(ram_a_cs) ? red_lat :
+	(ram_b_cs) ? grn_lat :
+	(ram_c_cs) ? blu_lat : 5'h00 };
 assign DOUT_VALID = rd_ena;
 
 // Latch RAM outputs...
 
 always @(posedge CLK_32M) begin
 	if (~G) begin
-		RED <= red_lat;
-		GRN <= grn_lat;
-		BLU <= blu_lat;
+		RED <= ram_a[color_addr];
+		GRN <= ram_b[color_addr];
+		BLU <= ram_c[color_addr];
 	end
 end
 

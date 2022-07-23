@@ -14,7 +14,7 @@ module board_b_d (
     output DOUT_VALID,
 
     input [15:0] DIN,
-    input [19:1] A,
+    input [19:0] A,
     input [1:0]  BYTE_SEL,
     input MRD,
     input MWR,
@@ -25,11 +25,16 @@ module board_b_d (
     input NL,
 
     input [8:0] VE,
-    input [9:0] HE,
+    input [8:0] HE,
 
-    output [7:0] RED,
-    output [7:0] GREEN,
-    output [7:0] BLUE
+    output [4:0] RED,
+    output [4:0] GREEN,
+    output [4:0] BLUE,
+    output P1L,
+
+   	input en_layer_a,
+   	input en_layer_b,
+   	input en_palette
 );
 
 // M72-B-D 1/8
@@ -54,6 +59,7 @@ wire [15:0] DOUT_A, DOUT_B;
 
 assign DOUT = pal_dout_valid ? pal_dout : RDA ? DOUT_A : DOUT_B;
 assign DOUT_VALID = RDA | RDB | pal_dout_valid;
+
 
 board_b_d_layer layer_a(
     .sys_clk(sys_clk),
@@ -83,7 +89,9 @@ board_b_d_layer layer_a(
     .BIT(BITA),
     .COL(COLA),
     .CP15(CP15A),
-    .CP8(CP8A)
+    .CP8(CP8A),
+
+    .enabled(en_layer_a)
 );
 
 
@@ -115,7 +123,9 @@ board_b_d_layer layer_b(
     .BIT(BITB),
     .COL(COLB),
     .CP15(CP15B),
-    .CP8(CP8B)
+    .CP8(CP8B),
+
+    .enabled(en_layer_b)
 );
 
 
@@ -123,12 +133,12 @@ wire [4:0] r_out, g_out, b_out;
 wire [15:0] pal_dout;
 wire pal_dout_valid;
 
-wire a_opaque = BITA != 4'b0000;
-wire b_opaque = BITB != 4'b0000;
+wire a_opaque = (BITA != 4'b0000);
+wire b_opaque = (BITB != 4'b0000);
 
 wire S = a_opaque;
 
-wire P1L = ~(CP15A & a_opaque) & ~(CP15B & b_opaque) & ~(CP8A & BITA[3]) & ~(CP8B & BITB[3]);
+assign P1L = ~(CP15A & a_opaque) & ~(CP15B & b_opaque) & ~(CP8A & BITA[3]) & ~(CP8B & BITB[3]);
 
 kna91h014 kna91h014(
     .CLK_32M(CLK_32M),
@@ -141,7 +151,7 @@ kna91h014 kna91h014(
     .E1_N(), // TODO
     .E2_N(), // TODO
 	
-	.MWR(MWR),
+	.MWR(MWR & BYTE_SEL[0]),
 	.MRD(MRD),
 
 	.DIN(DIN),
@@ -154,13 +164,9 @@ kna91h014 kna91h014(
     .BLU(b_out)
 );
 
-assign RED = { r_out, r_out[4:2] };
-assign GREEN = { g_out, g_out[4:2] };
-assign BLUE = { b_out, b_out[4:2] };
-
-//assign GREEN = { BITB, BITB };
-//assign BLUE = { BITA, BITA };
-//assign BLUE = 0;
+assign RED = en_palette ? r_out : b_opaque ? { BITB, BITB[3] } : { BITA, BITA[3] };
+assign GREEN = en_palette ? g_out : b_opaque ? { BITB, BITB[3] } : { BITA, BITA[3] };
+assign BLUE = en_palette ? b_out : b_opaque ? { BITB, BITB[3] } : { BITA, BITA[3] };
 
 endmodule
 

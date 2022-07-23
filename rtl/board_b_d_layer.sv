@@ -11,7 +11,7 @@ module board_b_d_layer(
 
     input [15:0] DIN,
     output [15:0] DOUT,
-    input [19:1] A,
+    input [19:0] A,
     input [1:0]  BYTE_SEL,
     input RD,
     input WR,
@@ -21,12 +21,14 @@ module board_b_d_layer(
     input NL,
 
     input [8:0] VE,
-    input [9:0] HE,
+    input [8:0] HE,
 
     output [3:0] BIT,
     output [3:0] COL,
     output CP15,
-    output CP8
+    output CP8,
+
+    input enabled
 );
 
 assign DOUT = { dout_h, dout_l };
@@ -77,25 +79,27 @@ eprom_32_32 rom(
 	.cs_in(|gfx_cs)
 );
 
+wire [3:0] BITF, BITR;
+
 kna6034201 kna6034201(
     .clock(CLK_32M),
     .SH(SH[3:0]),
-    .byte_1(dout[7:0]),
-    .byte_2(dout[15:8]),
-    .byte_3(dout[23:16]),
-    .byte_4(dout[31:24]),
-    .bit_1(BIT[0]),
-    .bit_2(BIT[1]),
-    .bit_3(BIT[2]),
-    .bit_4(BIT[3]),
-    .bit_1r(),
-    .bit_2r(),
-    .bit_3r(),
-    .bit_4r()
+    .byte_1(enabled ? dout[7:0] : 8'h00),
+    .byte_2(enabled ? dout[15:8] : 8'h00),
+    .byte_3(enabled ? dout[23:16] : 8'h00),
+    .byte_4(enabled ? dout[31:24] : 8'h00),
+    .bit_1(BITF[0]),
+    .bit_2(BITF[1]),
+    .bit_3(BITF[2]),
+    .bit_4(BITF[3]),
+    .bit_1r(BITR[0]),
+    .bit_2r(BITR[1]),
+    .bit_3r(BITR[2]),
+    .bit_4r(BITR[3])
 );
 
 reg [8:0] SV;
-reg [9:0] SH;
+reg [8:0] SH;
 
 reg [8:0] adj_v;
 reg [8:0] adj_h;
@@ -112,25 +116,26 @@ assign COL = row_data[3:0];
 assign CP15 = row_data[7];
 assign CP8 = row_data[6];
 
+assign BIT = HREV ? BITR : BITF;
 
-always @(posedge CLK_32M) begin // might need a faster clock
-    if (VSCK & BYTE_SEL[0]) adj_v <= DIN[8:0];
-    if (HSCK & BYTE_SEL[0]) adj_h <= DIN[8:0];
+always @(posedge CLK_32M) begin // TODO need to handle IO?
+    if (VSCK & ~A[0]) adj_v[7:0] <= DIN[7:0];
+    if (HSCK & ~A[0]) adj_h[7:0] <= DIN[7:0];
+    if (VSCK & A[0])  adj_v[8]   <= DIN[0];
+    if (HSCK & A[0])  adj_h[8]   <= DIN[0];
 end
 
 always @(posedge CLK_32M) begin
     reg [8:0] sh;
 
-    if (1) begin
-        //SH <= { HE[9], HE[7:0] } + adj_h;
-        SV <= VE; // + adj_v;
-        SH <= ( HE + adj_h ); // TODO ^ { 5'b0000, {3{NL}} };
+    SV <= VE + adj_v;
+    SH <= ( HE + adj_h ); // TODO ^ { 5'b0000, {3{NL}} };
 
-        if (SH[2:0] == 3'b001) { HREV, VREV, COD } <= { ram_h_dout, ram_l_dout };
-        //if (SH[2:1] == 2'b00) COD <= { SV[:3], SH[9:3] };
+    if (CE_PIX) begin
+        if (SH[2:1] == 2'b01) { VREV, HREV, COD } <= { ram_h_dout, ram_l_dout };
 
-        if (SH[2:0] == 3'b101) row_data1 <= ram_l_dout;
-        if (SH[2:0] == 3'b001) row_data <= row_data1;
+        if (SH[2]) row_data1 <= ram_l_dout;
+        if (~SH[2]) row_data <= row_data1;
     end
 end
 

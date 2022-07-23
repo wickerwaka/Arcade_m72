@@ -4,27 +4,46 @@ module kna70h015 (
     input CE_PIX,
 
     input [15:0] D,
+    input A0,
     input ISET,
     input NL, // TODO
     input S24H, // TODO
+    //input INT_D,
 
-    output CLD_UNKNOWN, // TODO
+    output CLD, // TODO
     output CPBLK, // TODO
-    output reg [8:0] VE,
-    output reg [8:0] V,
-    output reg [9:0] HE,
-    output reg [9:0] H,
+    output [8:0] VE,
+    output [8:0] V,
+    output [9:0] HE,
+    output [9:0] H,
 
     // These are inputs from two PROMs on the original board, but combined into this module here
-    output reg HBLK,
-    output reg VBLK,
-    output reg INT_D, // TODO
-    output reg HINT, // TODO
+    output HBLK,
+    output VBLK,
+    output HINT,
 
     // Output from PROMs in original board
-    output reg HS,
-    output reg VS
+    output HS,
+    output VS
 );
+
+
+assign CLD = h_count == ( S24H ? 10'h33f : 10'h2ff );
+assign CPBLK = HBLK | VBLK;
+assign VE = V ^ {9{NL}};
+assign HE = H ^ {10{NL}};
+assign V = v_count;
+assign H = h_count;
+assign HINT = INT_D && (v_count == h_int_line);
+assign HBLK = q_ic75[0];
+assign HS = ~q_ic75[1];
+assign INT_D = q_ic75[2];
+assign VBLK = q_ic66[0];
+assign VS = ~q_ic66[1];
+
+wire [3:0] q_ic75 = ic75[{S24H, h_count[9:3]}];
+wire [3:0] q_ic66 = ic66[{S24H, v_count[8:2]}];
+
 
 reg [8:0] v_count;
 reg [8:0] h_int_line;
@@ -46,45 +65,86 @@ V.Sync Pulse     = 384us (6)
 
 */
 
-always @(posedge CLK_32M) if (ISET) h_int_line <= D[8:0];
-
-
 always @(posedge CLK_32M) begin
+    if (ISET) begin
+        if (A0)
+            h_int_line[8] <= D[0];
+        else
+            h_int_line[7:0] <= D[7:0];
+    end
+
     if (CE_PIX) begin
         h_count <= h_count + 10'd1;
-        H <= h_count;
-
-        HINT <= 0;
-
-        if (h_count < 64) begin
-            HBLK <= 1;
-        end else if (h_count < 448) begin
-            HBLK <= 0;
-        end else if (h_count == 10'd511) begin
-            h_count <= 10'd0;
+        if (CLD) begin
+            h_count <= (S24H ? 10'h0c0 : 10'h100);
             v_count <= v_count + 9'd1;
-        end else begin
-            HBLK <= 1;
         end
 
-        V <= v_count;
-        VBLK <= 1;
-
-        HINT <= VE == h_int_line;
-
-        if (v_count < 9'd256) begin
-            VBLK <= 0;
-        end else if (v_count == 9'd283) begin
-            v_count <= 9'd0;
-        end
-
-        HS <= (h_count < 10'd20 || h_count > 10'd490 );
-        VS <= (v_count >= 9'd270 && v_count < 9'd276 );
-
-        HE <= h_count;
-        VE <= v_count + 9'd128;
+        if (v_count == (S24H ? 9'h1e1 : 9'h18d)) v_count <= (S24H ? 9'h01e : 9'h072);
     end
 end
+
+
+wire [3:0] ic66[256] = '{
+	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF,	4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+	4'hF, 4'hF, 4'hD, 4'hD, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF,	4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    
+    4'hF, 4'hF, 4'hF, 4'hF,	4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hE, 4'hE,
+	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+	4'hE, 4'hE, 4'hF, 4'hF, 4'hF, 4'hF, 4'hD, 4'hD,
+    4'hD, 4'hF, 4'hF, 4'hF,	4'hF, 4'hF, 4'hF, 4'hF
+};
+
+wire [3:0] ic75[256] = '{
+	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'h9, 4'h9, 4'hB, 4'hB,
+	4'hB, 4'hB, 4'hB, 4'hB, 4'hB, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
+	4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
+	4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
+	4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hE, 4'hE, 4'hE, 4'hE,
+	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hF, 4'hF, 4'hF, 4'hF, 4'hD, 4'hD, 4'h9,
+	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'h9, 4'h9, 4'hB, 4'hB,
+	4'hB, 4'hB, 4'hB, 4'hB, 4'hB, 4'hB, 4'hB, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
+	4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
+	4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
+	4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hE, 4'hE, 4'hE, 4'hE,
+	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+	4'hF, 4'hF, 4'hD, 4'hD, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+	4'hF, 4'hF, 4'hF, 4'hF
+};
 
 
 endmodule

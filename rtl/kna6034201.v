@@ -37,7 +37,7 @@ reg [2:0] old_sh = 0;
 
 always @(posedge clock) begin
 	old_sh <= SH;
-	if (SH == 3'b000) begin
+	if (SH == 3'b111) begin
 		shift_reg_1 <= byte_1;
 		shift_reg_2 <= {byte_1[0],byte_1[1],byte_1[2],byte_1[3],byte_1[4],byte_1[5],byte_1[6],byte_1[7]};
 

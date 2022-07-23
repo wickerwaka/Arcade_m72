@@ -6,7 +6,7 @@ module m72 (
 
 	input sys_clk,
 	input reset_n,
-	output ce_pix,
+	output reg ce_pix,
 	
 	input z80_reset_n,
 
@@ -47,98 +47,124 @@ module m72 (
 	input [15:0] sdr_dout2,
 	output [24:1] sdr_addr2,
 	output sdr_req2,
-	input sdr_ack2
+	input sdr_ack2,
+
+	input en_layer_a,
+	input en_layer_b,
+	input en_sprites,
+	input en_layer_palette,
+	input en_sprite_palette,
+
+	input sprite_freeze
 );
 
 // Divide 32Mhz clock by 4 for pixel clock
-reg [1:0] clk_div;
-always @(posedge CLK_32M) clk_div <= clk_div + 2'd1;
-assign ce_pix = clk_div == 2'b01;
+reg [3:0] ce_counter;
+reg [3:0] cpu_ce_counter;
+reg ce_cpu, ce_4x_cpu;
+always @(posedge CLK_32M) begin
+	if (!reset_n) begin
+		ce_pix <= 0;
+		ce_cpu <= 0;
+		ce_4x_cpu <= 0;
+		cpu_ce_counter <= 0;
+		ce_counter <= 0;
+	end else begin
+		ce_pix <= 0;
+		ce_cpu <= 0;
+		ce_4x_cpu <= 0;
+			
+		if (~ls245_en && (sdr_ack1 == sdr_req1)) begin
+			cpu_ce_counter <= cpu_ce_counter + 4'd1;
+			ce_4x_cpu <= 1;
+			ce_cpu <= cpu_ce_counter[1:0] == 2'b11;
+		end
+		ce_counter <= ce_counter + 4'd1;
+
+		ce_pix <= ce_counter[1:0] == 0;
+	end
+end
 
 wire clock = CLK_32M;
 
-
 /* Global signals from schematics */
-wire M_IO = ~cpu_iorq; // high = memory low = IO
-wire IOWR = cpu_iorq & cpu_we & stb; // IO Write
-wire IORD = cpu_iorq & ~cpu_we & stb; // IO Read
-wire MWR = ~cpu_iorq & cpu_we & stb; // Mem Write
-wire MRD = ~cpu_iorq & ~cpu_we & stb; // Mem Read
+wire M_IO = cpu_mem_read | cpu_mem_write; // high = memory low = IO
+wire IOWR = cpu_io_write; // IO Write
+wire IORD = cpu_io_read; // IO Read
+wire MWR = cpu_mem_write; // Mem Write
+wire MRD = cpu_mem_read; // Mem Read
+wire DBEN = cpu_io_write | cpu_io_read | cpu_mem_read | cpu_mem_write;
 
 wire TNSL;
 
-reg wb_ack_o = 0;
-wire stb, cyc;
-reg [19:0] pc;
+wire [15:0] cpu_mem_out;
+wire [19:0] cpu_mem_addr;
+wire [1:0] cpu_mem_sel;
+reg cpu_mem_read_lat, cpu_mem_write_lat;
+wire cpu_mem_read_w, cpu_mem_write_w;
+wire cpu_mem_read = cpu_mem_read_w | cpu_mem_read_lat;
+wire cpu_mem_write = cpu_mem_write_w | cpu_mem_write_lat;
 
-wire [15:0] cpu_dout;
-wire [19:1] cpu_addr;
-wire [1:0] cpu_sel;
-wire cpu_we;
-wire cpu_iorq;
-wire cpu_nmi;
-wire cpu_nmi_ack;
-wire cpu_int_rq;
-wire cpu_int_ack;
+wire cpu_io_read, cpu_io_write;
+wire [7:0] cpu_io_in;
+wire [7:0] cpu_io_out;
+wire [7:0] cpu_io_addr;
 
-// add 1 cycle wait to acknowledge
-reg wb_ack_wait = 0;
-reg [15:0] rom_ram_data = 0;
+wire [15:0] cpu_mem_in;
+
+
+wire [15:0] cpu_word_out = cpu_mem_addr[0] ? { cpu_mem_out[7:0], 8'h00 } : cpu_mem_out;
+wire [19:0] cpu_word_addr = { cpu_mem_addr[19:1], 1'b0 };
+wire [1:0] cpu_word_byte_sel = cpu_mem_addr[0] ? { cpu_mem_sel[0], 1'b0 } : cpu_mem_sel;
+
+function [15:0] word_shuffle(input [19:0] addr, input [15:0] data);
+	begin
+		word_shuffle = addr[0] ? { 8'h00, data[15:8] } : data;
+	end
+endfunction
+
+reg mem_rq_active = 0;
+reg b_d_dout_valid_lat, obj_pal_dout_valid_lat, sound_dout_valid_lat, sprite_dout_valid_lat;
 
 always @(posedge CLK_32M or negedge reset_n)
 begin
 	if (!reset_n) begin
-		wb_ack_o <= 0;
-		wb_ack_wait <= 0;
+		mem_rq_active <= 0;
+		b_d_dout_valid_lat <= 0;
+		obj_pal_dout_valid_lat <= 0;
+		sound_dout_valid_lat <= 0;
+		sprite_dout_valid_lat <= 0;
 	end else begin
-		if (stb) begin
-			if (wb_ack_o) begin
-				wb_ack_o <= 0;
-				wb_ack_wait <= 0;
-			end else begin
-				if (ls245_en) begin // sdram request
-					if (wb_ack_wait) begin
-						wb_ack_o <= (sdr_ack1 == sdr_req1);
-						wb_ack_wait <= ~(sdr_ack1 == sdr_req1);
-						rom_ram_data <= sdr_dout1;
-					end else begin
-						wb_ack_wait <= 1;
-						sdr_addr1 <= rom0_ce ? { 2'b00, cpu_addr[16:1] } :
-							rom1_ce ? { 2'b01, cpu_addr[16:1] } :
-							{ 2'b10, cpu_addr[16:1] };
-						sdr_wr_sel1 <= ( cpu_we & ram_cs2 ) ? cpu_sel : 2'b00;
-						sdr_req1 <= ~sdr_ack1;
-						sdr_din1 <= cpu_dout;
-					end
-				end else begin
-					wb_ack_wait <= 1;
-					wb_ack_o <= wb_ack_wait;
-				end
+		cpu_mem_read_lat <= cpu_mem_read_w;
+		cpu_mem_write_lat <= cpu_mem_write_w;
+
+		b_d_dout_valid_lat <= b_d_dout_valid;
+		obj_pal_dout_valid_lat <= obj_pal_dout_valid;
+		sound_dout_valid_lat <= sound_dout_valid;
+		sprite_dout_valid_lat <= sprite_dout_valid;
+
+		if (ls245_en && ((cpu_mem_read_w & ~cpu_mem_read_lat) || (cpu_mem_write_w & ~cpu_mem_write_lat))) begin // sdram request
+			sdr_addr1 <= rom0_ce ? { 2'b00, cpu_word_addr[16:1] } :
+				rom1_ce ? { 2'b01, cpu_word_addr[16:1] } :
+				{ 2'b10, cpu_word_addr[16:1] };
+			sdr_wr_sel1 <= 2'b00;
+			if (cpu_mem_write & ram_cs2 ) begin
+				sdr_wr_sel1 <= cpu_word_byte_sel;
+				sdr_din1 <= cpu_word_out;
 			end
+			sdr_req1 <= ~sdr_ack1;
+			mem_rq_active <= 1;
+		end else if ((sdr_ack1 == sdr_req1) && mem_rq_active) begin
+			mem_rq_active <= 0;
 		end
 	end
 end
 
-zet zet_inst (
-	.pc (pc),	// output [19:0]
-
-	// Wishbone master interface
-	.wb_clk_i ( CLK_32M ),		// input wb_clk_i
-	.wb_rst_i ( !reset_n ),		// input wb_rst_i
-	.wb_dat_i ( cpu_din ),		// input [15:0] wb_dat_i
-	.wb_dat_o ( cpu_dout ),		// output [15:0] wb_dat_o
-	.wb_adr_o ( cpu_addr ),			// output [19:1] wb_adr_o
-	.wb_we_o  ( cpu_we ),			// output wb_we_o
-	.wb_tga_o ( cpu_iorq ),		// output wb_tga_o
-	.wb_sel_o ( cpu_sel ),		// output [1:0] wb_sel_o
-	.wb_stb_o ( stb ),			// output wb_stb_o
-	.wb_cyc_o ( cyc ),			// output wb_cyc_o
-	.wb_ack_i ( wb_ack_o ),		// input wb_ack_i
-	.wb_tgc_i ( cpu_int_rq ),			// input wb_tgc_i
-	.wb_tgc_o ( cpu_int_ack ),			// output wb_tgc_o
-	.nmi      ( cpu_nmi ),			// input nmi
-	.nmia     ( cpu_nmi_ack )			// output nmia
-);
+assign cpu_mem_in = b_d_dout_valid_lat ? word_shuffle(cpu_mem_addr, b_d_dout) :
+					obj_pal_dout_valid_lat ? word_shuffle(cpu_mem_addr, obj_pal_dout) :
+					sound_dout_valid_lat ? word_shuffle(cpu_mem_addr, sound_dout) :
+					sprite_dout_valid_lat ? word_shuffle(cpu_mem_addr, sprite_dout) :
+					word_shuffle(cpu_mem_addr, sdr_dout1);
 
 wire ioctl_h0_cs, ioctl_h1_cs, ioctl_l0_cs, ioctl_l1_cs;
 wire [3:0] ioctl_gfx_a_cs;
@@ -148,41 +174,72 @@ wire [7:0] ioctl_sprite_cs;
 wire ls245_en, rom0_ce, rom1_ce, ram_cs2;
 
 
-reg [15:0] pic;
-
 wire [15:0] switches = { p2_buttons, p2_joystick, p1_buttons, p1_joystick };
 wire [15:0] flags = { 8'hff, TNSL, 1'b1, 1'b1 /*TEST*/, 1'b1 /*R*/, coin, start_buttons };
+wire IO_L = ~cpu_io_addr[0];
+wire IO_H =  cpu_io_addr[0];
 
-wire [15:0] cpu_din =
-	(vblank_trig && cpu_int_ack) ? 16'h0020 :
-	(hint_trig && cpu_int_ack) ? 16'h0022 :
-	b_d_dout_valid ? b_d_dout :
-	obj_pal_dout_valid ? obj_pal_dout :
-	sound_dout_valid ? sound_dout :
-	sprite_dout_valid ? sprite_dout :
-	ls245_en ? rom_ram_data : 
-	SW ? switches :
-	FLAG ? flags :
-	DSW ? dip_sw :
-	INTCS ? pic : // TODO PIC
-	16'hffff;
+assign cpu_io_in =  (SW & IO_L) ? switches[7:0] :
+                    (SW & IO_H) ? switches[15:8] :
+                    (FLAG & IO_L) ? flags[7:0] :
+                    (FLAG & IO_H) ? flags[15:8] :
+                    (DSW & IO_L) ? dip_sw[7:0] :
+                    (DSW & IO_H) ? dip_sw[15:8] :
+					8'hff;
 
-always @(posedge clock or negedge reset_n) begin
-	if (~reset_n) begin
-		pic <= 0;
-	end else begin
-		if (cpu_we) begin
-			if (INTCS)
-				pic <= cpu_dout;
-		end
-	end
-end
+reg irq_rq = 0;
+reg [8:0] irq_addr;
+wire irq_ack;
+
+cpu v30(
+	.clk(CLK_32M),
+	.ce(ce_cpu), // TODO
+	.ce_4x(ce_4x_cpu), // TODO
+	.reset(~reset_n),
+	.turbo(1),
+	.SLOWTIMING(0),
+
+	.cpu_idle(),
+	.cpu_halt(),
+	.cpu_irqrequest(),
+	.cpu_prefix(),
+
+	.dma_active(0),
+	.sdma_request(0),
+	.canSpeedup(),
+
+	.bus_read(cpu_mem_read_w),
+	.bus_write(cpu_mem_write_w),
+	.bus_be(cpu_mem_sel),
+	.bus_addr(cpu_mem_addr),
+	.bus_datawrite(cpu_mem_out),
+	.bus_dataread(cpu_mem_in),
+
+	// TODO
+	.irqrequest_in(irq_rq),
+	.irqvector_in(irq_addr),
+	.irqrequest_ack(irq_ack),
+
+	.load_savestate(0),
+
+	// TODO
+	.cpu_done(),
+	.cpu_export(),
+
+	.RegBus_Din(cpu_io_out),
+	.RegBus_Adr(cpu_io_addr),
+	.RegBus_wren(cpu_io_write),
+	.RegBus_rden(cpu_io_read),
+	.RegBus_Dout(cpu_io_in),
+
+	.sleep_savestate(0)
+);
 
 pal_3a pal_3a(
-	.a(cpu_addr),
+	.a(cpu_mem_addr),
 	.bank(),
-	.dben(~stb),
-	.m_io(~cpu_iorq),
+	.dben(~DBEN), // FIXME TODO
+	.m_io(M_IO),
 	.cod(),
 	.ls245_en(ls245_en),
 	.rom0_ce(rom0_ce),
@@ -195,10 +252,9 @@ pal_3a pal_3a(
 wire SW, FLAG, DSW, SND, FSET, DMA_ON, ISET, INTCS;
 
 pal_4d pal_4d(
-    .M_IO(M_IO),
     .IOWR(IOWR),
     .IORD(IORD),
-	.A(cpu_addr),
+	.A(cpu_io_addr),
 	.SW(SW),
 	.FLAG(FLAG),
 	.DSW(DSW),
@@ -212,9 +268,9 @@ pal_4d pal_4d(
 wire BUFDBEN, BUFCS, OBJ_P, CHARA_P, CHARA, SOUND, SDBEN;
 
 pal_3d pal_3d(
-	.A(cpu_addr),
-    .M_IO(~cpu_iorq),
-    .DBEN(~stb),
+	.A(cpu_mem_addr),
+    .M_IO(M_IO),
+    .DBEN(~DBEN),
     .TNSL(1), // TODO
     .BRQ(), // TODO
 
@@ -239,115 +295,29 @@ download_selector download_selector(
 );
 
 
-/*
-pic pic_inst (
-	.clk( clock ),					// input clk
-	.reset( !reset_n ),				// input reset
-	.cs( pic_cs ),					// input cs
-	.data_m_data_in( dat_o ),		// input [15:0] data_m_data_in
-	.data_m_data_out( pic_dout ),	// output [15:0] data_m_data_out
-	.data_m_bytesel( sel ),			// input [1:0] data_m_bytesel
-	.data_m_wr_en( we ),			// input data_m_wr_en
-	.data_m_access( stb ),			// input data_m_access
-	.data_m_ack( pic_data_ack ),	// output data_m_ack
-	.intr_in( pic_intr_in ),		// input [7:0] intr_in
-	.irq( pic_irq_vec ),			// output [7:0] irq
-	.intr( intr ),					// output intr
-	.inta( inta )					// input inta
-);
-*/
-
-reg vblank_trig;
-reg hint_trig;
 reg old_vblk, old_hint;
-assign cpu_int_rq = (vblank_trig | hint_trig);
-always @(posedge clock or negedge reset_n) begin
-	if (!reset_n) begin
-		vblank_trig <= 1'b0;
-		hint_trig <= 1'b0;
-		old_vblk <= 1'b0;
-		old_hint <= 1'b0;
-	end
-	else begin
+// assign cpu_int_rq = (vblank_trig | hint_trig); TODO
+always @(posedge CLK_32M) begin
+	if (irq_ack | ~irq_rq) begin
 		old_vblk <= VBLK;
 		old_hint <= HINT;
 
-		if (VBLK & ~old_vblk) vblank_trig <= 1'b1;
-		if (HINT & ~old_hint) hint_trig <= 1'b1;
-		if (vblank_trig && cpu_int_ack) vblank_trig <= 1'b0;
-		if (hint_trig && cpu_int_ack) hint_trig <= 1'b0;
-	
+		irq_rq <= 0;
+
+		if (VBLK & ~old_vblk) begin
+			irq_rq <= 1;
+			irq_addr <= 9'h80;
+		end else if(HINT & ~old_hint) begin
+			irq_rq <= 1;
+			irq_addr <= 9'h88;
+		end
 	end
 end
-
-
-/*wire [15:0] wb_dat_i = (vblank_trig && inta) ? 16'h0020 :
-					     (hint_trig && inta) ? 16'h0022 :
-											   dat_i;*/
-
-/*
-wire [15:0] z80_addr;
-wire [7:0] z80_di = sound_ram[ z80_addr ];
-wire [7:0] z80_do;
-
-wire [7:0] z80_dinst = 8'h00;	// M1 vector fetch?
-wire [6:0] z80_mc;
-wire [6:0] z80_ts;
-
-wire z80_cen = 1'b1;
-wire z80_wait_n = 1'b1;
-wire z80_int_n = 1'b1;
-wire z80_nmi_n = 1'b1;
-wire z80_busrq_n = 1'b1;
-
-
-tv80_core tv80_core_inst (
-  // Inputs
-  .reset_n( z80_reset_n ),
-  .clk( clock ),				// Change to sound clock later!
-  
-  .cen( z80_cen ),
-  .wait_n( z80_wait_n ),
-  .int_n( z80_int_n ),
-  .nmi_n( z80_nmi_n ),
-  .busrq_n( z80_busrq_n ),	
-  .dinst( z80_dinst ),			// input [7:0] M1 vector fetch?
-  .di( z80_di ),				// input [7:0] di
-
-  .m1_n( z80_m1_n ),
-  .iorq( z80_iorq ),
-  .no_read( z80_no_read ),
-  .write( z80_write ), 
-  .rfsh_n( z80_rfsh_n ),
-  .halt_n( z80_halt_n ),
-  .busak_n( z80_busak_n ),
-  .A( z80_addr ),
-  .dout( z80_do ),
-  .mc( z80_mc ),				// output [6:0] mc.
-  .ts( z80_ts ),				// output [6:0] ts.
-  .intcycle_n( z80_intcycle_n ),
-  .IntE( z80_IntE ),
-  .stop( z80_stop )
-);
-
-reg [7:0] sound_ram [0:65535];
-
-// Change to sound clock later!
-always @(posedge clock or negedge z80_reset_n)
-begin
-	if (!z80_reset_n) begin
-
-	end
-	else begin
-		if (!z80_m1_n & z80_write) sound_ram[ z80_addr ] <= z80_do;
-	end
-end
-*/
 
 wire [8:0] VE, V;
 wire [9:0] HE, H;
 wire HBLK, VBLK, HS, VS;
-wire INT_D, HINT;
+wire HINT;
 
 assign VGA_HS = HS;
 assign VGA_HB = HBLK;
@@ -358,12 +328,13 @@ kna70h015 kna70h015(
 	.CLK_32M(CLK_32M),
 
 	.CE_PIX(ce_pix),
-	.D(cpu_dout),
+	.D(cpu_io_out),
+	.A0(cpu_io_addr[0]),
 	.ISET(ISET),
 	.NL(0),
 	.S24H(0),
 
-	.CLD_UNKNOWN(),
+	.CLD(),
 	.CPBLK(),
 
 	.VE(VE),
@@ -373,7 +344,6 @@ kna70h015 kna70h015(
 
 	.HBLK(HBLK),
 	.VBLK(VBLK),
-	.INT_D(INT_D),
 	.HINT(HINT),
 
 	.HS(HS),
@@ -384,6 +354,7 @@ wire [15:0] b_d_dout;
 wire b_d_dout_valid;
 
 wire [4:0] char_r, char_g, char_b;
+wire P1L;
 
 board_b_d board_b_d(
 	.CLK_32M(CLK_32M),
@@ -401,9 +372,10 @@ board_b_d board_b_d(
     .DOUT(b_d_dout),
 	.DOUT_VALID(b_d_dout_valid),
 
-    .DIN(cpu_dout),
-    .A(cpu_addr),
-    .BYTE_SEL(cpu_sel),
+    .DIN(M_IO ? cpu_word_out : { 8'h00, cpu_io_out }),
+    .A(M_IO ? cpu_word_addr : { 8'h00, cpu_io_addr }),
+    .BYTE_SEL(M_IO ? cpu_word_byte_sel : 2'b01 ),
+
     .MRD(MRD),
     .MWR(MWR),
     .IORD(IORD),
@@ -413,16 +385,17 @@ board_b_d board_b_d(
     .NL(),
 
     .VE(VE),
-    .HE(HE),
+    .HE({HE[9], HE[7:0]}),
 
 
 	.RED(char_r),
 	.GREEN(char_g),
-	.BLUE(char_b)
+	.BLUE(char_b),
+	.P1L(P1L),
 
-//	.RED()
-//	.GREEN(),
-//	.BLUE()
+	.en_layer_a(en_layer_a),
+	.en_layer_b(en_layer_b),
+	.en_palette(en_layer_palette)
 );
 
 
@@ -431,12 +404,12 @@ wire sound_dout_valid;
 
 sound sound(
 	.CLK_32M(CLK_32M),
-	.DIN(cpu_dout),
+	.DIN(cpu_word_out),
 	.DOUT(sound_dout),
 	.DOUT_VALID(sound_dout_valid),
 	
-	.A(cpu_addr),
-    .BYTE_SEL(cpu_sel),
+	.A(cpu_word_addr),
+    .BYTE_SEL(cpu_word_byte_sel),
 
     .SDBEN(SDBEN),
     .MRD(MRD),
@@ -448,62 +421,57 @@ wire [15:0] obj_pal_dout;
 wire obj_pal_dout_valid;
 
 
-wire [4:0] obj_r, obj_g, obj_b;
+wire [4:0] obj_pal_r, obj_pal_g, obj_pal_b;
 kna91h014 obj_pal(
     .CLK_32M(CLK_32M),
 
     .G(OBJ_P),
     .SELECT(0),
-    .CA(pix_test),
-    .CB(pix_test),
+    .CA(obj_pix),
+    .CB(obj_pix),
 
     .E1_N(), // TODO
     .E2_N(), // TODO
 	
-	.MWR(MWR),
+	.MWR(MWR & cpu_word_byte_sel[0]),
 	.MRD(MRD),
 
-	.DIN(cpu_dout),
+	.DIN(cpu_word_out),
     .DOUT(obj_pal_dout),
     .DOUT_VALID(obj_pal_dout_valid),
-    .A(cpu_addr),
+    .A(cpu_word_addr),
 
-    .RED(obj_r),
-    .GRN(obj_g),
-    .BLU(obj_b)
+    .RED(obj_pal_r),
+    .GRN(obj_pal_g),
+    .BLU(obj_pal_b)
 );
 
-wire P0L = |pix_test[3:0];
+wire [4:0] obj_r = en_sprite_palette ? obj_pal_r : { obj_pix[3:0], 1'b0 };
+wire [4:0] obj_g = en_sprite_palette ? obj_pal_g : { obj_pix[3:0], 1'b0 };
+wire [4:0] obj_b = en_sprite_palette ? obj_pal_b : { obj_pix[3:0], 1'b0 };
 
-assign VGA_R = P0L ? {obj_r[4:0], obj_r[4:2]} : {char_r[4:0], char_r[4:2]};
-assign VGA_G = P0L ? {obj_g[4:0], obj_g[4:2]} : {char_g[4:0], char_g[4:2]};
-assign VGA_B = P0L ? {obj_b[4:0], obj_b[4:2]} : {char_b[4:0], char_b[4:2]};
-//assign VGA_R = {char_r[4:0], char_r[4:2]};
-//assign VGA_G = {char_g[4:0], char_g[4:2]};
-//assign VGA_B = {char_b[4:0], char_b[4:2]};
+wire P0L = (|obj_pix[3:0]) && en_sprites;
 
-//assign VGA_R = {pix_test[3:0], pix_test[3:0]};
-//assign VGA_G = {pix_test[3:0], pix_test[3:0]};
-//assign VGA_B = {pix_test[3:0], pix_test[3:0]};
+assign VGA_R = (P0L & P1L) ? {obj_r[4:0], obj_r[4:2]} : {char_r[4:0], char_r[4:2]};
+assign VGA_G = (P0L & P1L) ? {obj_g[4:0], obj_g[4:2]} : {char_g[4:0], char_g[4:2]};
+assign VGA_B = (P0L & P1L) ? {obj_b[4:0], obj_b[4:2]} : {char_b[4:0], char_b[4:2]};
 
 wire [15:0] sprite_dout;
 wire sprite_dout_valid;
 
-wire [7:0] pix_test;
-
-//assign VGA_R = pix_test;
+wire [7:0] obj_pix;
 
 sprite sprite(
 	.CLK_32M(CLK_32M),
 	.CLK_96M(CLK_96M),
 	.CE_PIX(ce_pix),
 
-	.DIN(cpu_dout),
+	.DIN(cpu_word_out),
 	.DOUT(sprite_dout),
 	.DOUT_VALID(sprite_dout_valid),
 	
-	.A(cpu_addr),
-    .BYTE_SEL(cpu_sel),
+	.A(cpu_word_addr),
+    .BYTE_SEL(cpu_word_byte_sel),
 
     .BUFDBEN(BUFDBEN),
     .MRD(MRD),
@@ -512,12 +480,12 @@ sprite sprite(
 	.VE(VE),
 	.NL(0),
 	.HBLK(HBLK),
-	.pix_test(pix_test),
+	.pix_test(obj_pix),
 
 	.base_address('h80000),
 
 	.TNSL(TNSL),
-	.DMA_ON(DMA_ON),
+	.DMA_ON(DMA_ON & ~sprite_freeze),
 
 	.sdr_wr_sel(sdr_wr_sel2),
 	.sdr_din(sdr_din2),

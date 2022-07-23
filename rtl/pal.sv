@@ -2,7 +2,7 @@
 
 module pal_3a
 (
-	input logic [19:1] a,
+	input logic [19:0] a,
     input logic bank,
     input logic dben,
     input logic m_io,
@@ -31,10 +31,10 @@ endmodule
 
 module pal_4d
 (
-    input logic M_IO,
     input logic IOWR,
     input logic IORD,
-	input logic [19:1] A,
+	input logic [7:0] A,
+
 	output logic SW,
 	output logic FLAG,
 	output logic DSW,
@@ -53,14 +53,14 @@ module pal_4d
         FSET = IOWR & !A[7] & !A[6] & !A[3] & !A[2] & A[1];
         DMA_ON = IOWR & !A[7] & !A[6] & !A[3] & A[2] & !A[1];
         ISET = IOWR & !A[7] & !A[6] & !A[3] & A[2] & A[1];
-        INTCS = !M_IO & !A[7] & A[6];
+        INTCS = (IOWR | IORD) & !A[7] & A[6];
 	end
 
 endmodule
 
 module pal_3d
 (
-	input logic [19:1] A,
+	input logic [19:0] A,
     input logic M_IO,
     input logic DBEN,
     input logic TNSL,

@@ -195,6 +195,12 @@ assign BUTTONS = 0;
 
 wire [1:0] ar = status[122:121];
 
+wire en_layer_a = ~status[64];
+wire en_layer_b = ~status[65];
+wire en_sprites = ~status[66];
+wire en_layer_palette = ~status[67];
+wire en_sprite_palette = ~status[68];
+
 assign VIDEO_ARX = (!ar) ? 12'd4 : (ar - 1'd1);
 assign VIDEO_ARY = (!ar) ? 12'd3 : 12'd0;
 
@@ -205,6 +211,13 @@ localparam CONF_STR = {
 	"O[122:121],Aspect ratio,Original,Full Screen2,[ARC1],[ARC2];",
 	"-;",
 	"DIP;",
+	"-;",
+	"O[64],Layer A,On,Off;",
+	"O[65],Layer B,On,Off;",
+	"O[66],Sprites,On,Off;",
+	"O[67],Layer Palette,On,Off;",
+	"O[68],Sprite Palette,On,Off;",
+	"O[69],Sprite Freeze,Off,On;",
 	"-;",
 	"T[0],Reset;",
 	"R[0],Reset and close OSD;",
@@ -219,12 +232,12 @@ wire [10:0] ps2_key;
 
 wire        ioctl_download;
 wire        ioctl_upload;
-wire        ioctl_upload_req;
+wire        ioctl_upload_req = 0;
 wire  [7:0] ioctl_index;
 wire        ioctl_wr;
 wire [24:0] ioctl_addr;
 wire  [7:0] ioctl_dout;
-wire  [7:0] ioctl_din;
+wire  [7:0] ioctl_din = 0;
 wire        ioctl_wait;
 
 wire [15:0] joystick_0, joystick_1;
@@ -437,8 +450,8 @@ m72 m72(
 	
 	.start_buttons({~m_start2, ~m_start1}),
 	
-	.p1_joystick({~m_down1, ~m_up1, ~m_left1, ~m_right1}),
-	.p2_joystick({~m_down2, ~m_up2, ~m_left2, ~m_right2}),
+	.p1_joystick({~m_up1, ~m_down1, ~m_left1, ~m_right1}),
+	.p2_joystick({~m_up2, ~m_down2, ~m_left2, ~m_right2}),
 	.p1_buttons({~m_btna1, ~m_btnb1, ~m_btnx1, ~m_btny1}),
 	.p2_buttons({~m_btna2, ~m_btnb2, ~m_btnx2, ~m_btny2}),
 	
@@ -463,7 +476,15 @@ m72 m72(
 	.sdr_dout2(sdr_dout2),
 	.sdr_addr2(sdr_addr2),
 	.sdr_req2(sdr_req2),
-	.sdr_ack2(sdr_ack2)
+	.sdr_ack2(sdr_ack2),
+
+	.en_layer_a(en_layer_a),
+	.en_layer_b(en_layer_b),
+	.en_sprites(en_sprites),
+	.en_layer_palette(en_layer_palette),
+	.en_sprite_palette(en_sprite_palette),
+
+	.sprite_freeze(status[69])
 );
 
 assign CLK_VIDEO = CLK_32M;

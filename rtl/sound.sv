@@ -5,7 +5,7 @@ module sound (
 	output [15:0] DOUT,
 	output DOUT_VALID,
 	
-	input [19:1] A,
+	input [19:0] A,
     input [1:0] BYTE_SEL,
 
     input SDBEN,

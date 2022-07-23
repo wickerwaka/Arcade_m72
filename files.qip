@@ -16,5 +16,9 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/pal.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/pic.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram.sv
 
-set_global_assignment -name QIP_FILE zet-master/cores/zet/files.qip
+set_global_assignment -name VHDL_FILE rtl/v30/export.vhd
+set_global_assignment -name VHDL_FILE rtl/v30/bus_savestates.vhd
+set_global_assignment -name VHDL_FILE rtl/v30/reg_savestates.vhd
+set_global_assignment -name VHDL_FILE rtl/v30/cpu.vhd
+set_global_assignment -name VHDL_FILE rtl/v30/divider.vhd
 
