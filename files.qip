@@ -15,10 +15,15 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sprite.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/pal.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/pic.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/jtframe_frac_cen.v
 
 set_global_assignment -name VHDL_FILE rtl/v30/export.vhd
 set_global_assignment -name VHDL_FILE rtl/v30/bus_savestates.vhd
 set_global_assignment -name VHDL_FILE rtl/v30/reg_savestates.vhd
 set_global_assignment -name VHDL_FILE rtl/v30/cpu.vhd
 set_global_assignment -name VHDL_FILE rtl/v30/divider.vhd
+
+set_global_assignment -name QIP_FILE rtl/jt51/jt51.qip
+set_global_assignment -name QIP_FILE rtl/T80/T80.qip
+
 

@@ -179,6 +179,13 @@ wire [15:0] flags = { 8'hff, TNSL, 1'b1, 1'b1 /*TEST*/, 1'b1 /*R*/, coin, start_
 wire IO_L = ~cpu_io_addr[0];
 wire IO_H =  cpu_io_addr[0];
 
+reg [7:0] sys_flags = 0;
+wire BRQ = ~sys_flags[4];
+// TODO BANK, CBLK, NL
+always @(posedge CLK_32M) begin
+	if (FSET & IO_L) sys_flags <= cpu_io_out[7:0];
+end
+
 assign cpu_io_in =  (SW & IO_L) ? switches[7:0] :
                     (SW & IO_H) ? switches[15:8] :
                     (FLAG & IO_L) ? flags[7:0] :
@@ -272,7 +279,7 @@ pal_3d pal_3d(
     .M_IO(M_IO),
     .DBEN(~DBEN),
     .TNSL(1), // TODO
-    .BRQ(), // TODO
+    .BRQ(BRQ), // TODO
 
 	.BUFDBEN(BUFDBEN),
 	.BUFCS(BUFCS),
@@ -404,16 +411,25 @@ wire sound_dout_valid;
 
 sound sound(
 	.CLK_32M(CLK_32M),
-	.DIN(cpu_word_out),
+	.DIN(cpu_mem_out),
 	.DOUT(sound_dout),
 	.DOUT_VALID(sound_dout_valid),
 	
-	.A(cpu_word_addr),
-    .BYTE_SEL(cpu_word_byte_sel),
+	.A(cpu_mem_addr),
+    .BYTE_SEL(cpu_mem_sel),
+
+	.IO_A(cpu_io_addr),
+	.IO_DIN(cpu_io_out),
 
     .SDBEN(SDBEN),
+	.SOUND(SOUND),
+	.SND(SND),
+	.BRQ(BRQ),
     .MRD(MRD),
-    .MWR(MWR)
+    .MWR(MWR),
+
+	.AUDIO_L(AUDIO_L),
+	.AUDIO_R(AUDIO_R)
 );
 
 // Temp A-C board palette

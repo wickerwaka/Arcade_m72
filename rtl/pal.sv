@@ -88,7 +88,7 @@ module pal_3d
 
         SOUND = A[19] & A[18] & A[17] & !A[16] & M_IO;
 
-        SDBEN = A[19] & A[18] & A[17] & !A[16] & M_IO & !DBEN & !BRQ;
+        SDBEN = A[19] & A[18] & A[17] & !A[16] & M_IO & !DBEN & BRQ;
     end
 
 endmodule
