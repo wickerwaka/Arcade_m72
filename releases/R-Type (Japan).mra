@@ -19,7 +19,7 @@
     <dip bits="15" ids="Off,On" name="Diagnostic Test"></dip>
   </switches>
   <!-- ROM data -->
-  <rom index="0" zip="rtypej.zip" md5="none">
+  <rom index="0" zip="rtype.zip|rtypej.zip" md5="none">
 	<!-- maincpu -->
     <interleave output="16">
         <part name="rt_r-h0-.1b" crc="c2940df2" map="10"/>
