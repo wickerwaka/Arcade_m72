@@ -3,7 +3,8 @@
 module kna6034201 (
 	input clock,			// Pin 18.
 	
-	input [2:0] SH,
+	input LOAD,
+	input CE_PIXEL,
 	
 	input [7:0] byte_1,	// Pins 8-1.
 	input [7:0] byte_2,	// Pins 16-10.
@@ -33,11 +34,8 @@ reg [7:0] shift_reg_6;	// Eagle - IC6.
 reg [7:0] shift_reg_7;
 reg [7:0] shift_reg_8;
 
-reg [2:0] old_sh = 0;
-
 always @(posedge clock) begin
-	old_sh <= SH;
-	if (SH == 3'b111) begin
+	if (CE_PIXEL & LOAD) begin
 		shift_reg_1 <= byte_1;
 		shift_reg_2 <= {byte_1[0],byte_1[1],byte_1[2],byte_1[3],byte_1[4],byte_1[5],byte_1[6],byte_1[7]};
 
@@ -50,7 +48,7 @@ always @(posedge clock) begin
 		shift_reg_7 <= byte_4;
 		shift_reg_8 <= {byte_4[0],byte_4[1],byte_4[2],byte_4[3],byte_4[4],byte_4[5],byte_4[6],byte_4[7]};
 	end
-	else if (SH != old_sh) begin
+	else if (CE_PIXEL) begin
 		shift_reg_1 <= {shift_reg_1[6:0],1'b0};	// Shift out, MSB first.
 		shift_reg_2 <= {shift_reg_2[6:0],1'b0};	// Shift out, MSB first.
 		

@@ -83,7 +83,8 @@ wire [3:0] BITF, BITR;
 
 kna6034201 kna6034201(
     .clock(CLK_32M),
-    .SH(SH[3:0]),
+    .CE_PIXEL(CE_PIX),
+    .LOAD(SH[2:0] == 3'b111),
     .byte_1(enabled ? dout[7:0] : 8'h00),
     .byte_2(enabled ? dout[15:8] : 8'h00),
     .byte_3(enabled ? dout[23:16] : 8'h00),
@@ -98,8 +99,8 @@ kna6034201 kna6034201(
     .bit_4r(BITR[3])
 );
 
-reg [8:0] SV;
-reg [8:0] SH;
+wire [8:0] SV = VE + adj_v;
+wire [8:0] SH = HE + adj_h;
 
 reg [8:0] adj_v;
 reg [8:0] adj_h;
@@ -126,16 +127,10 @@ always @(posedge CLK_32M) begin // TODO need to handle IO?
 end
 
 always @(posedge CLK_32M) begin
-    reg [8:0] sh;
-
-    SV <= VE + adj_v;
-    SH <= ( HE + adj_h ); // TODO ^ { 5'b0000, {3{NL}} };
-
     if (CE_PIX) begin
-        if (SH[2:1] == 2'b01) { VREV, HREV, COD } <= { ram_h_dout, ram_l_dout };
-
-        if (SH[2]) row_data1 <= ram_l_dout;
-        if (~SH[2]) row_data <= row_data1;
+        if (SH[2:0] == 2'b011) { VREV, HREV, COD } <= { ram_h_dout, ram_l_dout };
+        if (SH[2:0] == 3'b101) row_data1 <= ram_l_dout;
+        if (SH[2:0] == 3'b111) row_data <= row_data1;
     end
 end
 
