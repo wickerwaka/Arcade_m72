@@ -78,7 +78,7 @@ module pal_3d
 	always_comb begin
         BUFDBEN = A[19] & A[18] & !A[17] & !A[16] & !A[15] & !A[14] & M_IO & !DBEN & TNSL;
 
-        BUFCS = TNSL & (!A[19] | !A[18] | A[17] | A[16] | A[15] | A[14] | !M_IO);
+        BUFCS = TNSL & (!A[19] | !A[18] | A[17] | A[16] | A[15] | A[14] | !M_IO); // TODO unused, neg M_IO is not safe here
 
         OBJ_P = A[19] & A[18] & !A[17] & !A[16] & A[15] & !A[14] & M_IO;
 

@@ -484,7 +484,9 @@ m72 m72(
 	.en_layer_palette(en_layer_palette),
 	.en_sprite_palette(en_sprite_palette),
 
-	.sprite_freeze(status[69])
+	.sprite_freeze(status[69]),
+
+	.pause(0)
 );
 
 assign CLK_VIDEO = CLK_32M;

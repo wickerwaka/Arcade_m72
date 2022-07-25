@@ -16,6 +16,8 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/pal.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/pic.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/jtframe_frac_cen.v
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pause.v
+
 
 set_global_assignment -name VHDL_FILE rtl/v30/export.vhd
 set_global_assignment -name VHDL_FILE rtl/v30/bus_savestates.vhd

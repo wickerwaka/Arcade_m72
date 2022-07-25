@@ -18,6 +18,7 @@ module sound (
 	input SND,
 	input BRQ,
 
+	input pause,
 
 	output [15:0] AUDIO_L,
 	output [15:0] AUDIO_R
@@ -80,7 +81,7 @@ wire [7:0] z80_dout;
 T80s z80(
 	.RESET_n(~BRQ),
 	.CLK(CLK_32M),
-	.CEN(CE_AUDIO),
+	.CEN(CE_AUDIO & ~pause),
 	.INT_n(~(~SIRQ_N | snd_latch_ready)),
 	.BUSRQ_n(~BRQ),
 	.M1_n(z80_M1_n),
@@ -96,8 +97,8 @@ T80s z80(
 jt51 ym2151(
 	.rst(BRQ),
 	.clk(CLK_32M),
-	.cen(CE_AUDIO),
-	.cen_p1(CE_AUDIO_P1),
+	.cen(CE_AUDIO & ~pause),
+	.cen_p1(CE_AUDIO_P1 & ~pause),
 	.cs_n(~SCS),
 	.wr_n(SWR_N),
 	.a0(SA0),

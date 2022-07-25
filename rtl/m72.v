@@ -35,6 +35,8 @@ module m72 (
 	input service_button,
 	input [15:0] dip_sw,
 
+	input pause,
+
 	output [1:0] sdr_wr_sel1,
 	output [15:0] sdr_din1,
 	input [15:0] sdr_dout1,
@@ -59,6 +61,8 @@ module m72 (
 );
 
 // Divide 32Mhz clock by 4 for pixel clock
+wire can_pause = ~ce_cpu & ~DMA_ON;
+
 reg [3:0] ce_counter;
 reg [3:0] cpu_ce_counter;
 reg ce_cpu, ce_4x_cpu;
@@ -75,9 +79,11 @@ always @(posedge CLK_32M) begin
 		ce_4x_cpu <= 0;
 			
 		if (~ls245_en && (sdr_ack1 == sdr_req1)) begin
-			cpu_ce_counter <= cpu_ce_counter + 4'd1;
-			ce_4x_cpu <= 1;
-			ce_cpu <= cpu_ce_counter[1:0] == 2'b11;
+			if (~pause | ~can_pause) begin
+				cpu_ce_counter <= cpu_ce_counter + 4'd1;
+				ce_4x_cpu <= 1;
+				ce_cpu <= cpu_ce_counter[1:0] == 2'b11;
+			end
 		end
 		ce_counter <= ce_counter + 4'd1;
 
@@ -88,7 +94,6 @@ end
 wire clock = CLK_32M;
 
 /* Global signals from schematics */
-wire M_IO = cpu_mem_read | cpu_mem_write; // high = memory low = IO
 wire IOWR = cpu_io_write; // IO Write
 wire IORD = cpu_io_read; // IO Read
 wire MWR = cpu_mem_write; // Mem Write
@@ -246,7 +251,7 @@ pal_3a pal_3a(
 	.a(cpu_mem_addr),
 	.bank(),
 	.dben(~DBEN), // FIXME TODO
-	.m_io(M_IO),
+	.m_io(MRD | MWR),
 	.cod(),
 	.ls245_en(ls245_en),
 	.rom0_ce(rom0_ce),
@@ -276,7 +281,7 @@ wire BUFDBEN, BUFCS, OBJ_P, CHARA_P, CHARA, SOUND, SDBEN;
 
 pal_3d pal_3d(
 	.A(cpu_mem_addr),
-    .M_IO(M_IO),
+    .M_IO(MRD | MWR),
     .DBEN(~DBEN),
     .TNSL(1), // TODO
     .BRQ(BRQ), // TODO
@@ -379,9 +384,12 @@ board_b_d board_b_d(
     .DOUT(b_d_dout),
 	.DOUT_VALID(b_d_dout_valid),
 
-    .DIN(M_IO ? cpu_word_out : { 8'h00, cpu_io_out }),
-    .A(M_IO ? cpu_word_addr : { 8'h00, cpu_io_addr }),
-    .BYTE_SEL(M_IO ? cpu_word_byte_sel : 2'b01 ),
+    .DIN(cpu_word_out),
+    .A(cpu_word_addr),
+    .BYTE_SEL(cpu_word_byte_sel),
+
+	.IO_DIN(cpu_io_out),
+	.IO_A(cpu_io_addr),
 
     .MRD(MRD),
     .MWR(MWR),
@@ -429,7 +437,9 @@ sound sound(
     .MWR(MWR),
 
 	.AUDIO_L(AUDIO_L),
-	.AUDIO_R(AUDIO_R)
+	.AUDIO_R(AUDIO_R),
+
+	.pause(pause)
 );
 
 // Temp A-C board palette

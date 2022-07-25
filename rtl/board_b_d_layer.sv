@@ -16,6 +16,9 @@ module board_b_d_layer(
     input RD,
     input WR,
 
+    input [7:0] IO_A,
+	input [7:0] IO_DIN,
+
     input VSCK,
     input HSCK,
     input NL,
@@ -120,10 +123,10 @@ assign CP8 = row_data[6];
 assign BIT = HREV ? BITR : BITF;
 
 always @(posedge CLK_32M) begin // TODO need to handle IO?
-    if (VSCK & ~A[0]) adj_v[7:0] <= DIN[7:0];
-    if (HSCK & ~A[0]) adj_h[7:0] <= DIN[7:0];
-    if (VSCK & A[0])  adj_v[8]   <= DIN[0];
-    if (HSCK & A[0])  adj_h[8]   <= DIN[0];
+    if (VSCK & ~IO_A[0]) adj_v[7:0] <= IO_DIN[7:0];
+    if (HSCK & ~IO_A[0]) adj_h[7:0] <= IO_DIN[7:0];
+    if (VSCK & IO_A[0])  adj_v[8]   <= IO_DIN[0];
+    if (HSCK & IO_A[0])  adj_h[8]   <= IO_DIN[0];
 end
 
 always @(posedge CLK_32M) begin

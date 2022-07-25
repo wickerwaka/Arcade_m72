@@ -16,6 +16,10 @@ module board_b_d (
     input [15:0] DIN,
     input [19:0] A,
     input [1:0]  BYTE_SEL,
+
+	input [7:0] IO_A,
+	input [7:0] IO_DIN,
+
     input MRD,
     input MWR,
     input IORD,
@@ -44,10 +48,10 @@ wire WRB = MWR & CHARA & A[15];
 wire RDA = MRD & CHARA & ~A[15];
 wire RDB = MRD & CHARA & A[15];
 
-wire VSCKA = IOWR & (A[7:6] == 2'b10) & (A[3:1] == 3'b000);
-wire HSCKA = IOWR & (A[7:6] == 2'b10) & (A[3:1] == 3'b001);
-wire VSCKB = IOWR & (A[7:6] == 2'b10) & (A[3:1] == 3'b010);
-wire HSCKB = IOWR & (A[7:6] == 2'b10) & (A[3:1] == 3'b011);
+wire VSCKA = IOWR & (IO_A[7:6] == 2'b10) & (IO_A[3:1] == 3'b000);
+wire HSCKA = IOWR & (IO_A[7:6] == 2'b10) & (IO_A[3:1] == 3'b001);
+wire VSCKB = IOWR & (IO_A[7:6] == 2'b10) & (IO_A[3:1] == 3'b010);
+wire HSCKB = IOWR & (IO_A[7:6] == 2'b10) & (IO_A[3:1] == 3'b011);
 
 wire [3:0] BITA;
 wire [3:0] BITB;
@@ -78,6 +82,9 @@ board_b_d_layer layer_a(
     .BYTE_SEL(BYTE_SEL),
     .RD(RDA),
     .WR(WRA),
+
+    .IO_DIN(IO_DIN),
+    .IO_A(IO_A),
 
     .VSCK(VSCKA),
     .HSCK(HSCKA),
@@ -112,6 +119,9 @@ board_b_d_layer layer_b(
     .BYTE_SEL(BYTE_SEL),
     .RD(RDB),
     .WR(WRB),
+
+    .IO_DIN(IO_DIN),
+    .IO_A(IO_A),
 
     .VSCK(VSCKB),
     .HSCK(HSCKB),
