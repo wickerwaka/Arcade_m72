@@ -91,7 +91,6 @@ architecture arch of cpu is
    (
       CPUSTAGE_IDLE,
       CPUSTAGE_DECODEOP,
-      CPUSTAGE_DECODEEXOP,
       CPUSTAGE_MODRM,
       CPUSTAGE_CHECKDATAREADY,
       CPUSTAGE_FETCHDATA1_8,
@@ -126,6 +125,7 @@ architecture arch of cpu is
       OP_BOUND,
       OP_OPIN,
       OP_OPOUT,
+      OP_BCDSTRING,
       OP_STRINGLOAD,
       OP_STRINGCOMPARE,
       OP_STRINGSTORE,
@@ -238,6 +238,14 @@ architecture arch of cpu is
       ALU_OP_ASCIIADJUST,
       ALU_OP_NOTHING
    );
+
+   type tBCD_OP is
+   (
+      BCD_OP_ADD,
+      BCD_OP_SUB,
+      BCD_OP_CMP
+   );
+
    
    -- decodedInstruction
    signal opcode           : tCPU_Opcode;
@@ -258,6 +266,7 @@ architecture arch of cpu is
    signal prefixSegmentSS  : std_logic;
    signal prefixSegmentDS  : std_logic;
    signal aluop            : tALU_OP;
+   signal bcdOp            : tBCD_OP;
    signal useAluResult     : std_logic;
    signal memSegment       : unsigned(15 downto 0);
    signal pushlist         : std_logic_vector(15 downto 0);
@@ -291,6 +300,8 @@ architecture arch of cpu is
    signal irqCS            : unsigned(15 downto 0);
    signal adjustNegate     : std_logic;
    signal enterCnt         : unsigned(5 downto 0);
+   signal bcdOffset        : unsigned(6 downto 0);
+   signal bcdAcc           : unsigned(7 downto 0);
    
    type tMemAccessType is 
    (
@@ -354,7 +365,7 @@ architecture arch of cpu is
    signal memFirst         : std_logic := '0';
    signal lastaddr         : unsigned(19 downto 0);
    signal cpu_finished     : std_logic := '0';
-   signal opstep           : integer range 0 to 3;
+   signal opstep           : integer range 0 to 7;
    signal waitexe          : std_logic;
    signal pushFirst        : std_logic;
    signal popFirst         : std_logic;
@@ -498,6 +509,7 @@ begin
       variable newRepeat         : std_logic;
       variable jumpNow           : std_logic;
       variable jumpAddr          : unsigned(15 downto 0);
+      variable bcdResult         : unsigned(7 downto 0);
    begin
       if rising_edge(clk) then
          
@@ -743,7 +755,43 @@ begin
                         when x"0D" => opcode <= OP_MOVREG; aluop <= ALU_OP_OR ; useAluResult <= '1'; opsize <= 2; instantFetch <= '1'; source1 <= OPSOURCE_ACC;       source2 <= OPSOURCE_FETCHVALUE16; cpustage <= CPUSTAGE_FETCHDATA2_16; optarget <= OPTARGET_DECODE; target_decode <= CPU_REG_ax;
 
                         when x"0E" => pushlist <= REGPOS_cs; cpustage <= CPUSTAGE_CHECKDATAREADY;
-                        when x"0F" => cpustage <= CPUSTAGE_DECODEEXOP; exOpcodebyte <= prefetchBuffer(15 downto 8); regs.reg_ip <= regs.reg_ip + 1; consumePrefetch <= 1;
+                        when x"0F" =>
+                           exOpcodebyte <= prefetchBuffer(15 downto 8);
+                           regs.reg_ip <= regs.reg_ip + 1;
+                           consumePrefetch <= 1;
+                           case (prefetchBuffer(15 downto 8)) is
+                              -- TEST1
+                              when x"10" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1'; halt <= '1';
+                              -- CLR1
+                              when x"12" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1'; halt <= '1';
+                              -- SET1
+                              when x"15" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1'; halt <= '1';
+                              -- NOT1
+                              when x"16" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1'; halt <= '1';
+                              -- NOT1
+                              when x"17" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1'; halt <= '1';
+                              -- ADD4S
+                              when x"20" => cpustage <= CPUSTAGE_EXECUTE; opcode <= OP_BCDSTRING; bcdOp <= BCD_OP_ADD; bcdOffset <= (others => '0'); regs.FlagCar <= '0'; regs.FlagZer <= '1';
+                              -- SUB4S
+                              when x"22" => cpustage <= CPUSTAGE_EXECUTE; opcode <= OP_BCDSTRING; bcdOp <= BCD_OP_SUB; bcdOffset <= (others => '0'); regs.FlagCar <= '0'; regs.FlagZer <= '1';
+                              -- CMP4S
+                              when x"26" => cpustage <= CPUSTAGE_EXECUTE; opcode <= OP_BCDSTRING; bcdOp <= BCD_OP_CMP; bcdOffset <= (others => '0'); regs.FlagCar <= '0'; regs.FlagZer <= '1';
+                              -- ROL4
+                              when x"28" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1'; halt <= '1';
+                              -- ROR4
+                              when x"2a" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1'; halt <= '1';
+                              -- INS
+                              when x"31" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1'; halt <= '1';
+                              -- EXT
+                              when x"33" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1'; halt <= '1';
+                              -- INS
+                              when x"39" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1'; halt <= '1';
+                              -- BRKEM
+                              when x"ff" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1'; halt <= '1';
+                              
+                              when others => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1'; halt <= '1';
+                           end case;
+
 
                         when x"10" => opcode <= OP_MOVMEM; aluop <= ALU_OP_ADC; useAluResult <= '1'; opsize <= 1; newDelay := 1;       source1 <= OPSOURCE_MEM;       source2 <= OPSOURCE_MODRM_REG;    cpustage <= CPUSTAGE_MODRM;         optarget <= OPTARGET_MEM; 
                         when x"11" => opcode <= OP_MOVMEM; aluop <= ALU_OP_ADC; useAluResult <= '1'; opsize <= 2; newDelay := 1;       source1 <= OPSOURCE_MEM;       source2 <= OPSOURCE_MODRM_REG;    cpustage <= CPUSTAGE_MODRM;         optarget <= OPTARGET_MEM; 
@@ -1080,43 +1128,6 @@ begin
                         PrefixIP        <= (others => '0');
                      end if;
 
--- ####################################################################################
--- ############################## EX DECODE  ##########################################
--- ####################################################################################
-
-                  when CPUSTAGE_DECODEEXOP =>
-                     case (exOpcodebyte) is
-                        -- TEST1
-                        when x"10" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- CLR1
-                        when x"12" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- SET1
-                        when x"15" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- NOT1
-                        when x"16" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- NOT1
-                        when x"17" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- ADD4S
-                        when x"20" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- SUB4S
-                        when x"22" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- CMP4S
-                        when x"26" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- ROL4
-                        when x"28" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- ROR4
-                        when x"2a" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- INS
-                        when x"31" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- EXT
-                        when x"33" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- INS
-                        when x"39" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        -- BRKEM
-                        when x"ff" => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                        
-                        when others => cpustage <= CPUSTAGE_IDLE; cpu_done <= '1';
-                     end case;
 -- ####################################################################################
 -- ############################## MODRM      ##########################################
 -- ####################################################################################
@@ -2393,7 +2404,107 @@ begin
                               exeDone      := '1';
                               newExeDelay  := newExeDelay + 1;
                            end if;
-                           
+
+                        when OP_BCDSTRING =>
+                           if ((bcdOffset & "0") >= regs.reg_cx(7 downto 0)) then
+                              exeDone         := '1';
+                           else              
+                              case (opstep) is
+                                 when 0 =>
+                                    if (ce = '1') then
+                                       opstep <= 1;
+                                       varmemSegment := regs.reg_ds;
+                                       if (prefixSegmentES = '1') then varmemSegment := regs.reg_es; end if;
+                                       if (prefixSegmentCS = '1') then varmemSegment := regs.reg_cs; end if;
+                                       if (prefixSegmentSS = '1') then varmemSegment := regs.reg_ss; end if;
+                                       if (prefixSegmentDS = '1') then varmemSegment := regs.reg_ds; end if;
+                                       bus_read          <= '1';
+                                       bus_write         <= '0';
+                                       bus_addr          <= resize(varmemSegment * 16 + regs.reg_si + bcdOffset, 20);
+                                       prefetchAllow     <= '0';
+                                    end if;
+                                 
+                                 when 1 => opstep <= 2; -- wait
+
+                                 when 2 =>
+                                    opstep <= 3;
+                                    if (regs.FlagCar = '0') then
+                                       fetch1Val(7 downto 0)  <= unsigned(bus_dataread(7 downto 0));
+                                    else
+                                       fetch1Val(7 downto 0)  <= unsigned(bus_dataread(7 downto 0)) + 1;
+                                    end if;
+                                    regs.FlagCar <= '0';
+                                 
+                                 when 3 =>
+                                    if (ce = '1') then
+                                       bus_read          <= '1';
+                                       bus_write         <= '0';
+                                       bus_addr          <= resize(regs.reg_es * 16 + regs.reg_di + bcdOffset, 20);
+                                       prefetchAllow     <= '0';
+                                       opstep <= 4;
+                                    end if;
+                                 
+                                 when 4 => opstep <= 5; -- wait
+                                 
+                                 when 5 =>
+                                    opstep <= 6;
+                                    if (bcdOp = BCD_OP_ADD) then
+                                       bcdAcc <= unsigned(bus_dataread(7 downto 0)) + fetch1Val(7 downto 0);
+                                    else
+                                       bcdAcc <= unsigned(bus_dataread(7 downto 0)) - fetch1Val(7 downto 0);
+                                    end if;
+
+                                 when 6 =>
+                                    opstep <= 7;
+                                    bcdResult := bcdAcc;
+                                    if (bcdResult(3 downto 0) > x"9") then
+                                       if (bcdOp = BCD_OP_ADD) then 
+                                          bcdResult := bcdResult + 6;
+                                       else
+                                          bcdResult := bcdResult - 6;
+                                       end if;
+                                    end if;
+                                    if (bcdResult(7 downto 0) > x"99") then
+                                       if (bcdOp = BCD_OP_ADD) then 
+                                          bcdResult := bcdResult + 16#60#;
+                                       else
+                                          bcdResult := bcdResult - 16#60#;
+                                       end if;
+                                       regs.FlagCar <= '1';
+                                    end if;
+                                    bcdAcc <= bcdResult;
+                                 
+                                 when 7 =>
+                                    if (bcdOp = BCD_OP_CMP) then
+                                       if (bcdAcc /= x"00") then
+                                          regs.FlagZer <= '0';
+                                       end if;
+
+                                       bcdOffset <= bcdOffset + 1;
+                                       opstep <= 0;
+                                    else
+                                       prefetchAllow <= '0';
+                                       if (bus_read = '0' and bus_write = '0' and (waitexe = '0' or ce = '1')) then
+                                          waitexe   <= '1';
+                                          bus_read          <= '0';
+                                          bus_write         <= '1';
+                                          bus_be            <= "01";
+                                          bus_datawrite    <= x"00" & std_logic_vector(bcdAcc);
+                                          bus_addr         <= resize(regs.reg_es * 16 + regs.reg_di + bcdOffset, 20);
+
+                                          if (bcdAcc /= x"00") then
+                                             regs.FlagZer <= '0';
+                                          end if;
+
+                                          bcdOffset <= bcdOffset + 1;
+                                          opstep <= 0;
+                                       elsif (waitexe = '1' and ce = '1') then
+                                          waitexe <= '0'; 
+                                       end if;
+                                    end if;
+                              end case;
+                           end if;
+                        
                         when OP_STRINGLOAD =>
                            if (repeat = '1' and regs.reg_cx = 0) then
                               repeat          <= '0';
@@ -2803,7 +2914,7 @@ begin
                            regs.FlagSgn <='0';
                            regs.FlagPar <= not(result8(7) xor result8(6) xor result8(5) xor result8(4) xor result8(3) xor result8(2) xor result8(1) xor result8(0));
                            exeDone       := '1';
-                           
+
                         when others => 
                            exeDone    := '1';
                
