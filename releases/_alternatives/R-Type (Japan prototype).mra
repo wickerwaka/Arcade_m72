@@ -9,13 +9,18 @@
 
   <joystick>8-way</joystick>
   <num_buttons>2</num_buttons>
-  <buttons default="B,A,R,L" names="Fire,Pod Control,Start,Coin"></buttons>
-  <switches default="00,10">
+  <buttons default="B,A,R,L" names="Fire,Pod Control,Start,Coin,P2 Start"></buttons>
+  <switches default="0c 0a">
     <dip bits="0,1" ids="3,2,4,5" name="Crafts"></dip>
     <dip bits="2" ids="Off,On" name="Attract mode sound"></dip>
     <dip bits="3" ids="100K,50K" name="Extra Craft"></dip>
+    <dip bits="4,7" ids="1C/1P,2C/1P,3C/1P,4C/1P,5C/1P,6C/1P,1C/2P,1C/3P,1C/4P,1C/5P,1C/6P,2C/3P,4C/2P,5C/3P,8C/3P,Free Play" name="Coin Mode"></dip>
     <dip bits="8" ids="Off,On" name="Flip Picture"></dip>
     <dip bits="9" ids="Cocktail,Upright" name="Cabinet type"></dip>
+    <dip bits="11" ids="Normal,Difficult" name="Difficulty"></dip>
+    <dip bits="12" ids="On,Off" name="Continues"></dip>
+    <dip bits="13" ids="Off,On" name="Freeze Picture"></dip>
+    <dip bits="14" ids="Off,On" name="No Death Mode"></dip>
     <dip bits="15" ids="Off,On" name="Diagnostic Test"></dip>
   </switches>
   <!-- ROM data -->
