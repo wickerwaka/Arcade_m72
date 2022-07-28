@@ -9,7 +9,7 @@
 
   <joystick>8-way</joystick>
   <num_buttons>2</num_buttons>
-  <buttons default="B,A,R,L" names="Fire,Pod Control,Start,Coin,P2 Start"></buttons>
+  <buttons default="B,A,R,L" names="Fire,Pod Control,Start,Coin,P2 Start,Pause"></buttons>
   <switches default="0c 0a">
     <dip bits="0,1" ids="3,2,4,5" name="Crafts"></dip>
     <dip bits="2" ids="Off,On" name="Attract mode sound"></dip>

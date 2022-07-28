@@ -36,6 +36,8 @@ module board_b_d (
     output [4:0] BLUE,
     output P1L,
 
+    input paused,
+    
    	input en_layer_a,
    	input en_layer_b,
    	input en_palette
@@ -98,7 +100,8 @@ board_b_d_layer layer_a(
     .CP15(CP15A),
     .CP8(CP8A),
 
-    .enabled(en_layer_a)
+    .enabled(en_layer_a),
+    .paused(paused)
 );
 
 
@@ -135,7 +138,8 @@ board_b_d_layer layer_b(
     .CP15(CP15B),
     .CP8(CP8B),
 
-    .enabled(en_layer_b)
+    .enabled(en_layer_b),
+    .paused(paused)
 );
 
 

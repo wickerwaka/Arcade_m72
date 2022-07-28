@@ -31,7 +31,8 @@ module board_b_d_layer(
     output CP15,
     output CP8,
 
-    input enabled
+    input enabled,
+    input paused
 );
 
 assign DOUT = { dout_h, dout_l };
@@ -108,7 +109,7 @@ wire [8:0] SH = HE + adj_h;
 reg [8:0] adj_v;
 reg [8:0] adj_h;
 
-reg HREV, VREV;
+reg HREV1, VREV, HREV2;
 reg [13:0] COD;
 reg [7:0] row_data1, row_data;
 
@@ -120,24 +121,34 @@ assign COL = row_data[3:0];
 assign CP15 = row_data[7];
 assign CP8 = row_data[6];
 
-assign BIT = HREV ? BITR : BITF;
+assign BIT = (HREV2 ^ NL) ? BITR : BITF;
 
-always @(posedge CLK_32M) begin // TODO need to handle IO?
-    if (VSCK & ~IO_A[0]) adj_v[7:0] <= IO_DIN[7:0];
-    if (HSCK & ~IO_A[0]) adj_h[7:0] <= IO_DIN[7:0];
-    if (VSCK & IO_A[0])  adj_v[8]   <= IO_DIN[0];
-    if (HSCK & IO_A[0])  adj_h[8]   <= IO_DIN[0];
+reg [17:0] paused_offsets[512];
+reg [8:0] ve_latch;
+
+always @(posedge CLK_32M) begin
+    ve_latch <= VE;
+    if (paused) begin
+        {adj_v, adj_h} <= paused_offsets[ve_latch];
+    end else begin
+        if (VSCK & ~IO_A[0]) adj_v[7:0] <= IO_DIN[7:0];
+        if (HSCK & ~IO_A[0]) adj_h[7:0] <= IO_DIN[7:0];
+        if (VSCK & IO_A[0])  adj_v[8]   <= IO_DIN[0];
+        if (HSCK & IO_A[0])  adj_h[8]   <= IO_DIN[0];
+        paused_offsets[ve_latch] <= {adj_v, adj_h};
+    end
 end
 
 always @(posedge CLK_32M) begin
     if (CE_PIX) begin
-        if (SH[2:0] == 2'b011) { VREV, HREV, COD } <= { ram_h_dout, ram_l_dout };
+        if (SH[2:0] == 2'b001) { VREV, HREV1, COD } <= { ram_h_dout, ram_l_dout };
         if (SH[2:0] == 3'b101) row_data1 <= ram_l_dout;
-        if (SH[2:0] == 3'b111) row_data <= row_data1;
+        if (SH[2:0] == 3'b111) begin
+            row_data <= row_data1;
+            HREV2 <= HREV1;
+        end
     end
 end
-
-// TODO SLDA ?
 
 
 endmodule

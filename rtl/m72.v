@@ -10,14 +10,14 @@ module m72 (
 	
 	input z80_reset_n,
 
-	output [7:0] VGA_R,
-	output [7:0] VGA_G,
-	output [7:0] VGA_B,
+	output [7:0] R,
+	output [7:0] G,
+	output [7:0] B,
 
-	output VGA_HS,
-	output VGA_VS,
-	output VGA_HB,
-	output VGA_VB,
+	output HSync,
+	output VSync,
+	output HBlank,
+	output VBlank,
 
 	output [15:0] AUDIO_L,
 	output [15:0] AUDIO_R,
@@ -35,7 +35,7 @@ module m72 (
 	input service_button,
 	input [15:0] dip_sw,
 
-	input pause,
+	input pause_rq,
 
 	output [1:0] sdr_wr_sel1,
 	output [15:0] sdr_din1,
@@ -61,7 +61,21 @@ module m72 (
 );
 
 // Divide 32Mhz clock by 4 for pixel clock
-wire can_pause = ~ce_cpu & ~DMA_ON;
+reg paused = 0;
+reg [8:0] paused_v;
+reg [9:0] paused_h;
+
+always @(posedge CLK_32M) begin
+	if (pause_rq & ~paused) begin
+		if (~ls245_en & ~DBEN & ~mem_rq_active & ~HINT & ~VBLK & ~irq_rq) begin
+			paused <= 1;
+			paused_v <= V;
+			paused_h <= H;
+		end
+	end else if (~pause_rq & paused) begin
+		paused <= ~(V == paused_v && H == paused_h);
+	end
+end
 
 reg [3:0] ce_counter;
 reg [3:0] cpu_ce_counter;
@@ -77,16 +91,16 @@ always @(posedge CLK_32M) begin
 		ce_pix <= 0;
 		ce_cpu <= 0;
 		ce_4x_cpu <= 0;
-			
-		if (~ls245_en && (sdr_ack1 == sdr_req1)) begin
-			if (~pause | ~can_pause) begin
+
+		if (~paused) begin
+			if (~ls245_en && (sdr_ack1 == sdr_req1)) begin
 				cpu_ce_counter <= cpu_ce_counter + 4'd1;
 				ce_4x_cpu <= 1;
 				ce_cpu <= cpu_ce_counter[1:0] == 2'b11;
 			end
 		end
-		ce_counter <= ce_counter + 4'd1;
 
+		ce_counter <= ce_counter + 4'd1;
 		ce_pix <= ce_counter[1:0] == 0;
 	end
 end
@@ -121,6 +135,7 @@ wire [15:0] cpu_mem_in;
 wire [15:0] cpu_word_out = cpu_mem_addr[0] ? { cpu_mem_out[7:0], 8'h00 } : cpu_mem_out;
 wire [19:0] cpu_word_addr = { cpu_mem_addr[19:1], 1'b0 };
 wire [1:0] cpu_word_byte_sel = cpu_mem_addr[0] ? { cpu_mem_sel[0], 1'b0 } : cpu_mem_sel;
+reg [15:0] cpu_ram_rom_data;
 
 function [15:0] word_shuffle(input [19:0] addr, input [15:0] data);
 	begin
@@ -160,6 +175,7 @@ begin
 			sdr_req1 <= ~sdr_ack1;
 			mem_rq_active <= 1;
 		end else if ((sdr_ack1 == sdr_req1) && mem_rq_active) begin
+			cpu_ram_rom_data <= sdr_dout1;
 			mem_rq_active <= 0;
 		end
 	end
@@ -169,7 +185,7 @@ assign cpu_mem_in = b_d_dout_valid_lat ? word_shuffle(cpu_mem_addr, b_d_dout) :
 					obj_pal_dout_valid_lat ? word_shuffle(cpu_mem_addr, obj_pal_dout) :
 					sound_dout_valid_lat ? word_shuffle(cpu_mem_addr, sound_dout) :
 					sprite_dout_valid_lat ? word_shuffle(cpu_mem_addr, sprite_dout) :
-					word_shuffle(cpu_mem_addr, sdr_dout1);
+					word_shuffle(cpu_mem_addr, cpu_ram_rom_data);
 
 wire ioctl_h0_cs, ioctl_h1_cs, ioctl_l0_cs, ioctl_l1_cs;
 wire [3:0] ioctl_gfx_a_cs;
@@ -185,7 +201,14 @@ wire IO_L = ~cpu_io_addr[0];
 wire IO_H =  cpu_io_addr[0];
 
 reg [7:0] sys_flags = 0;
+wire COIN0 = sys_flags[0];
+wire COIN1 = sys_flags[1];
+wire SOFT_NL = ~sys_flags[2];
+wire CBLK = sys_flags[3];
 wire BRQ = ~sys_flags[4];
+wire BANK = sys_flags[5];
+wire NL = SOFT_NL ^ dip_sw[8];
+
 // TODO BANK, CBLK, NL
 always @(posedge CLK_32M) begin
 	if (FSET & IO_L) sys_flags <= cpu_io_out[7:0];
@@ -244,7 +267,7 @@ cpu v30(
 	.RegBus_rden(cpu_io_read),
 	.RegBus_Dout(cpu_io_in),
 
-	.sleep_savestate(0)
+	.sleep_savestate(paused)
 );
 
 pal_3a pal_3a(
@@ -310,7 +333,7 @@ download_selector download_selector(
 reg old_vblk, old_hint;
 // assign cpu_int_rq = (vblank_trig | hint_trig); TODO
 always @(posedge CLK_32M) begin
-	if (irq_ack | ~irq_rq) begin
+	if (~paused & (irq_ack | ~irq_rq)) begin
 		old_vblk <= VBLK;
 		old_hint <= HINT;
 
@@ -331,10 +354,10 @@ wire [9:0] HE, H;
 wire HBLK, VBLK, HS, VS;
 wire HINT;
 
-assign VGA_HS = HS;
-assign VGA_HB = HBLK;
-assign VGA_VS = VS;
-assign VGA_VB = VBLK;
+assign HSync = HS;
+assign HBlank = HBLK;
+assign VSync = VS;
+assign VBlank = VBLK;
 
 kna70h015 kna70h015(
 	.CLK_32M(CLK_32M),
@@ -343,7 +366,7 @@ kna70h015 kna70h015(
 	.D(cpu_io_out),
 	.A0(cpu_io_addr[0]),
 	.ISET(ISET),
-	.NL(0),
+	.NL(NL),
 	.S24H(0),
 
 	.CLD(),
@@ -397,7 +420,7 @@ board_b_d board_b_d(
     .IOWR(IOWR),
     .CHARA(CHARA),
 	.CHARA_P(CHARA_P),
-    .NL(),
+    .NL(NL),
 
     .VE(VE),
     .HE({HE[9], HE[7:0]}),
@@ -407,6 +430,8 @@ board_b_d board_b_d(
 	.GREEN(char_g),
 	.BLUE(char_b),
 	.P1L(P1L),
+
+	.paused(paused),
 
 	.en_layer_a(en_layer_a),
 	.en_layer_b(en_layer_b),
@@ -439,7 +464,7 @@ sound sound(
 	.AUDIO_L(AUDIO_L),
 	.AUDIO_R(AUDIO_R),
 
-	.pause(pause)
+	.pause(paused)
 );
 
 // Temp A-C board palette
@@ -478,9 +503,9 @@ wire [4:0] obj_b = en_sprite_palette ? obj_pal_b : { obj_pix[3:0], 1'b0 };
 
 wire P0L = (|obj_pix[3:0]) && en_sprites;
 
-assign VGA_R = (P0L & P1L) ? {obj_r[4:0], obj_r[4:2]} : {char_r[4:0], char_r[4:2]};
-assign VGA_G = (P0L & P1L) ? {obj_g[4:0], obj_g[4:2]} : {char_g[4:0], char_g[4:2]};
-assign VGA_B = (P0L & P1L) ? {obj_b[4:0], obj_b[4:2]} : {char_b[4:0], char_b[4:2]};
+assign R = ~CBLK ? ( (P0L & P1L) ? {obj_r[4:0], obj_r[4:2]} : {char_r[4:0], char_r[4:2]} ) : 8'h00;
+assign G = ~CBLK ? ( (P0L & P1L) ? {obj_g[4:0], obj_g[4:2]} : {char_g[4:0], char_g[4:2]} ) : 8'h00;
+assign B = ~CBLK ? ( (P0L & P1L) ? {obj_b[4:0], obj_b[4:2]} : {char_b[4:0], char_b[4:2]} ) : 8'h00;
 
 wire [15:0] sprite_dout;
 wire sprite_dout_valid;
@@ -504,7 +529,7 @@ sprite sprite(
     .MWR(MWR),
 
 	.VE(VE),
-	.NL(0),
+	.NL(NL),
 	.HBLK(HBLK),
 	.pix_test(obj_pix),
 

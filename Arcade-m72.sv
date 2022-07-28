@@ -16,6 +16,7 @@
 //
 //============================================================================
 
+
 module emu
 (
 	//Master input clock
@@ -179,10 +180,8 @@ assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
 assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
 assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;  
 
-assign VGA_SL = 0;
 assign VGA_F1 = 0;
 assign VGA_SCALER = 0;
-assign HDMI_FREEZE = 0;
 
 assign AUDIO_S = 1;
 assign AUDIO_MIX = 0;
@@ -193,7 +192,14 @@ assign BUTTONS = 0;
 
 //////////////////////////////////////////////////////////////////
 
-wire [1:0] ar = status[122:121];
+wire [1:0] ar = status[2:1];
+wire [1:0] scandoubler_fx = status[4:3];
+wire [1:0] scale = status[6:5];
+wire pause_in_osd = status[7];
+wire system_pause;
+
+assign VGA_SL = scandoubler_fx;
+assign HDMI_FREEZE = 0; //system_pause;
 
 wire en_layer_a = ~status[64];
 wire en_layer_b = ~status[65];
@@ -201,26 +207,28 @@ wire en_sprites = ~status[66];
 wire en_layer_palette = ~status[67];
 wire en_sprite_palette = ~status[68];
 
-assign VIDEO_ARX = (!ar) ? 12'd4 : (ar - 1'd1);
-assign VIDEO_ARY = (!ar) ? 12'd3 : 12'd0;
 
 `include "build_id.v" 
 localparam CONF_STR = {
 	"M72;;",
 	"-;",
-	"O[122:121],Aspect ratio,Original,Full Screen2,[ARC1],[ARC2];",
+	"O[2:1],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
+	"O[4:3],Scandoubler Fx,None,CRT 25%,CRT 50%,CRT 75%;",
+	"O[6:5],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
+	"O[7],OSD Pause,Off,On;",
 	"-;",
 	"DIP;",
 	"-;",
-	"O[64],Layer A,On,Off;",
-	"O[65],Layer B,On,Off;",
-	"O[66],Sprites,On,Off;",
-	"O[67],Layer Palette,On,Off;",
-	"O[68],Sprite Palette,On,Off;",
-	"O[69],Sprite Freeze,Off,On;",
+	"P1,Debug;",
+	"P1-;",
+	"P1O[64],Layer A,On,Off;",
+	"P1O[65],Layer B,On,Off;",
+	"P1O[66],Sprites,On,Off;",
+	"P1O[67],Layer Palette,On,Off;",
+	"P1O[68],Sprite Palette,On,Off;",
+	"P1O[69],Sprite Freeze,Off,On;",
 	"-;",
 	"T[0],Reset;",
-	"R[0],Reset and close OSD;",
 	"DEFMRA,/_Arcade/r-type.mra;",
 	"V,v",`BUILD_DATE 
 };
@@ -364,7 +372,6 @@ reg btn_coin2    = 0;
 reg btn_1p_start = 0;
 reg btn_2p_start = 0;
 reg btn_pause    = 0;
-reg btn_service  = 0;
 
 wire pressed = ps2_key[9];
 wire [7:0] code = ps2_key[7:0];
@@ -377,7 +384,6 @@ always @(posedge CLK_32M) begin
 			'h1E: btn_2p_start <= pressed; // 2
 			'h2E: btn_coin1    <= pressed; // 5
 			'h36: btn_coin2    <= pressed; // 6
-			'h46: btn_service  <= pressed; // 9
 			'h4D: btn_pause    <= pressed; // P
 
 			'h75: btn_up      <= pressed; // up
@@ -429,20 +435,22 @@ wire m_pause    = btn_pause    | joy[9];
 
 //////////////////////////////////////////////////////////////////
 
-wire VGA_HB, VGA_VB;
+wire [7:0] R, G, B;
+wire HBlank, VBlank, HSync, VSync;
+wire ce_pix;
 
 m72 m72(
 	.CLK_32M(CLK_32M),
 	.CLK_96M(CLK_96M),
-	.ce_pix(CE_PIXEL),
+	.ce_pix(ce_pix),
 	.reset_n(~reset),
-	.VGA_HS(VGA_HS),
-	.VGA_VS(VGA_VS),
-	.VGA_HB(VGA_HB),
-	.VGA_VB(VGA_VB),
-	.VGA_R(VGA_R),
-	.VGA_G(VGA_G),
-	.VGA_B(VGA_B),
+	.HBlank(HBlank),
+	.VBlank(VBlank),
+	.HSync(HSync),
+	.VSync(VSync),
+	.R(R),
+	.G(G),
+	.B(B),
 	.AUDIO_L(AUDIO_L),
 	.AUDIO_R(AUDIO_R),
 
@@ -455,8 +463,6 @@ m72 m72(
 	.p1_buttons({~m_btna1, ~m_btnb1, ~m_btnx1, ~m_btny1}),
 	.p2_buttons({~m_btna2, ~m_btnb2, ~m_btnx2, ~m_btny2}),
 	
-//	.btn_service(~btn_service),
-
 	.dip_sw({~dip_sw[1], ~dip_sw[0]}),
 
 	.sys_clk(CLK_32M),
@@ -486,15 +492,67 @@ m72 m72(
 
 	.sprite_freeze(status[69]),
 
-	.pause(0)
+	.pause_rq(system_pause)
+);
+
+wire VGA_DE_MIXER;
+video_mixer #(386, 0, 1) video_mixer(
+	.CLK_VIDEO(CLK_VIDEO),
+	.CE_PIXEL(CE_PIXEL),
+	.ce_pix(ce_pix),
+
+	.scandoubler(forced_scandoubler || scandoubler_fx != 2'b00),
+	.hq2x(0),
+
+	.gamma_bus(gamma_bus),
+
+	.R(R),
+	.G(G),
+	.B(B),
+
+	.HBlank(HBlank),
+	.VBlank(VBlank),
+	.HSync(HSync),
+	.VSync(VSync),
+
+	.VGA_R(VGA_R),
+	.VGA_G(VGA_G),
+	.VGA_B(VGA_B),
+	.VGA_VS(VGA_VS),
+	.VGA_HS(VGA_HS),
+	.VGA_DE(VGA_DE_MIXER),
+
+	.HDMI_FREEZE(HDMI_FREEZE)
+);
+
+video_freak video_freak(
+	.CLK_VIDEO(CLK_VIDEO),
+	.CE_PIXEL(CE_PIXEL),
+	.VGA_VS(VGA_VS),
+	.HDMI_WIDTH(HDMI_WIDTH),
+	.HDMI_HEIGHT(HDMI_HEIGHT),
+	.VGA_DE(VGA_DE),
+	.VIDEO_ARX(VIDEO_ARX),
+	.VIDEO_ARY(VIDEO_ARY),
+
+	.VGA_DE_IN(VGA_DE_MIXER),
+	.ARX((!ar) ? 12'd4 : (ar - 1'd1)),
+	.ARY((!ar) ? 12'd3 : 12'd0),
+	.CROP_SIZE(0),
+	.CROP_OFF(0),
+	.SCALE(scale)
+);
+
+pause pause(
+	.clk_sys(clk_sys),
+	.reset(reset),
+	.user_button(m_pause),
+	.pause_request(0),
+	.options({1'b0, pause_in_osd}),
+	.pause_cpu(system_pause),
+	.OSD_STATUS(OSD_STATUS)
 );
 
 assign CLK_VIDEO = CLK_32M;
-
-assign VGA_DE = ~(VGA_HB | VGA_VB);
-
-reg  [26:0] act_cnt;
-always @(posedge CLK_32M) act_cnt <= act_cnt + 1'd1; 
-assign LED_USER    = act_cnt[26]  ? act_cnt[25:18]  > act_cnt[7:0]  : act_cnt[25:18]  <= act_cnt[7:0];
 
 endmodule
