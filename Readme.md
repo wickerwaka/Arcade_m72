@@ -1,5 +1,7 @@
 # IREM M72 Core
 
+![](docs/header_small.png)
+
 This is a work in progress implementation of the IREM M72 arcade hardware (https://www.system16.com/hardware.php?id=738) for the MiSTer FPGA platform. Currently R-Type is the only supported game.
 
 Alpha version of the core and MRA files are available in the `releases/` directory.
