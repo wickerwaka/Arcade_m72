@@ -14,6 +14,7 @@ Many people, knowingly or not, contributed to this work.
 - @Ace9921 because I used a lot of his TimePilot'84 code as an example for hooking up inputs and dipswitches
 - The people from PLD Archive for collecting and archiving schematics and PAL information http://wiki.pldarchive.co.uk/index.php?title=R-Type_(M72)
 - @sorgelig for developing and maintaining MiSTer
+- @RobertPeip for the v30mz cpu I am using as the basis for the v30
 - The MiSTer FPGA discord server for the helpful advice and support
 
 
