@@ -6,12 +6,12 @@ module kna70h015 (
     input [15:0] D,
     input A0,
     input ISET,
-    input NL, // TODO
-    input S24H, // TODO
-    //input INT_D,
-
-    output CLD, // TODO
-    output CPBLK, // TODO
+    input NL,
+    input S24H,
+    
+    output INT_D,
+    output CLD,
+    output CPBLK,
     output [8:0] VE,
     output [8:0] V,
     output [9:0] HE,
@@ -24,7 +24,9 @@ module kna70h015 (
 
     // Output from PROMs in original board
     output HS,
-    output VS
+    output VS,
+
+    input video_50hz
 );
 
 
@@ -80,7 +82,7 @@ always @(posedge CLK_32M) begin
             v_count <= v_count + 9'd1;
         end
 
-        if (v_count == (S24H ? 9'h1e1 : 9'h18d)) v_count <= (S24H ? 9'h01e : 9'h072);
+        if (v_count == (S24H ? 9'h1e1 : 9'h18d)) v_count <= (S24H ? 9'h01e : (video_50hz ? 9'h056 : 9'h072));
     end
 end
 

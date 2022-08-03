@@ -182,7 +182,7 @@ module eprom_32_32
 		.clock_a(clk),
 		.address_a(addr),
 		.q_a(data),
-        .wren_a(0),
+        .wren_a(1'd0),
         .data_a(),
 
 		.clock_b(clk_in),

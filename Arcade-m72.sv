@@ -207,6 +207,19 @@ wire en_sprites = ~status[66];
 wire en_layer_palette = ~status[67];
 wire en_sprite_palette = ~status[68];
 
+wire video_60hz = status[9:8] == 2'd3;
+wire video_57hz = status[9:8] == 2'd2;
+wire video_50hz = status[9:8] == 2'd1;
+
+// If video timing changes, force mode update
+reg [1:0] video_status;
+reg new_vmode = 0;
+always @(posedge clk_sys) begin
+	if (video_status != status[9:8]) begin
+		video_status <= status[9:8];
+		new_vmode <= ~new_vmode;
+	end
+end
 
 `include "build_id.v" 
 localparam CONF_STR = {
@@ -216,6 +229,7 @@ localparam CONF_STR = {
 	"O[4:3],Scandoubler Fx,None,CRT 25%,CRT 50%,CRT 75%;",
 	"O[6:5],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
 	"O[7],OSD Pause,Off,On;",
+	"O[9:8],Video Timing,Normal,50Hz,57Hz,60Hz;",
 	"-;",
 	"DIP;",
 	"-;",
@@ -265,6 +279,7 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 	.direct_video(direct_video),
 
 	.forced_scandoubler(forced_scandoubler),
+	.new_vmode(new_vmode),
 
 	.buttons(buttons),
 	.status(status),
@@ -492,7 +507,11 @@ m72 m72(
 
 	.sprite_freeze(status[69]),
 
-	.pause_rq(system_pause)
+	.pause_rq(system_pause),
+
+	.video_50hz(video_50hz),
+	.video_57hz(video_57hz),
+	.video_60hz(video_60hz)
 );
 
 wire VGA_DE_MIXER;

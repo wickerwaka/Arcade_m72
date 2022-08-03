@@ -57,7 +57,11 @@ module m72 (
 	input en_layer_palette,
 	input en_sprite_palette,
 
-	input sprite_freeze
+	input sprite_freeze,
+
+	input video_60hz,
+	input video_57hz,
+	input video_50hz
 );
 
 // Divide 32Mhz clock by 4 for pixel clock
@@ -77,18 +81,14 @@ always @(posedge CLK_32M) begin
 	end
 end
 
-reg [3:0] ce_counter;
 reg [3:0] cpu_ce_counter;
 reg ce_cpu, ce_4x_cpu;
 always @(posedge CLK_32M) begin
 	if (!reset_n) begin
-		ce_pix <= 0;
 		ce_cpu <= 0;
 		ce_4x_cpu <= 0;
 		cpu_ce_counter <= 0;
-		ce_counter <= 0;
 	end else begin
-		ce_pix <= 0;
 		ce_cpu <= 0;
 		ce_4x_cpu <= 0;
 
@@ -99,11 +99,17 @@ always @(posedge CLK_32M) begin
 				ce_cpu <= cpu_ce_counter[1:0] == 2'b11;
 			end
 		end
-
-		ce_counter <= ce_counter + 4'd1;
-		ce_pix <= ce_counter[1:0] == 0;
 	end
 end
+
+wire ce_pix_half;
+jtframe_frac_cen #(2) pixel_cen
+(
+	.clk(CLK_32M),
+	.n(video_57hz ? 10'd115 : video_60hz ? 10'd207 : 10'd1),
+	.m(video_57hz ? 10'd444 : video_60hz ? 10'd760 : 10'd4),
+	.cen({ce_pix_half, ce_pix})
+);
 
 wire clock = CLK_32M;
 
@@ -382,7 +388,9 @@ kna70h015 kna70h015(
 	.HINT(HINT),
 
 	.HS(HS),
-	.VS(VS)
+	.VS(VS),
+
+	.video_50hz(video_50hz)
 );
 
 wire [15:0] b_d_dout;

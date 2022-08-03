@@ -165,22 +165,22 @@ always_ff @(posedge CLK_96M) begin
         // new line, reset
         obj_ptr <= 0;
         st <= 0;
-        V <= VE + 1;
+        V <= VE + 9'd1;
     end else if (obj_ptr == 10'h80) begin
         // done, wait
         obj_ptr <= obj_ptr;
     end else if (sdr_ack != sdr_req) begin
         // wait
     end else begin
-        st <= st + 1;
+        st <= st + 4'd1;
         case (st)
         0: cur_obj <= objram[obj_ptr];
         1: begin
-            width_px <= 16 << obj_width;
-            height_px <= 16 << obj_height;
-            width <= 1 << obj_width;
-            height <= 1 << obj_height;
-            rel_y <= V + obj_org_y + ( 16 << obj_height );
+            width_px <= 9'd16 << obj_width;
+            height_px <= 9'd16 << obj_height;
+            width <= 4'd1 << obj_width;
+            height <= 4'd1 << obj_height;
+            rel_y <= V + obj_org_y + ( 9'd16 << obj_height );
             span <= 0;
         end
         2: begin
@@ -188,7 +188,7 @@ always_ff @(posedge CLK_96M) begin
                 st <= 0;
                 obj_ptr <= obj_ptr + width;
             end
-            code <= obj_code + row_y[8:4] + ( ( obj_flipx ? ( width - span - 1 ) : span ) * 8 );
+            code <= obj_code + row_y[8:4] + ( ( obj_flipx ? ( width - span - 1 ) : span ) * 16'd8 );
         end
         3: begin
             sdr_addr <= base_address[24:1] + { code[11:0], obj_flipx, row_y[3:0], 1'b0 }; // 1st 16-bit of 1st column
@@ -207,7 +207,7 @@ always_ff @(posedge CLK_96M) begin
                 sdr_addr <= base_address[24:1] + { code[11:0], ~obj_flipx, row_y[3:0], 1'b0 }; // 1st 16-bit of 2nd column
                 sdr_req <= ~sdr_ack;
                 line_buffer_color <= obj_color;
-                line_buffer_x = obj_org_x + ( 16 * span );
+                line_buffer_x = obj_org_x + ( 10'd16 * span );
                 line_buffer_req <= ~line_buffer_ack;
             end
         end
@@ -221,7 +221,7 @@ always_ff @(posedge CLK_96M) begin
             if (line_buffer_req != line_buffer_ack)
                 st <= st; // wait
             else begin
-                line_buffer_x = obj_org_x + 8 + ( 16 * span );
+                line_buffer_x = obj_org_x + 10'd8 + ( 10'd16 * span );
                 line_buffer_req <= ~line_buffer_ack;
             end
         end
@@ -231,7 +231,7 @@ always_ff @(posedge CLK_96M) begin
                 obj_ptr <= obj_ptr + width;
             end else begin
                 st <= 2;
-                span <= span + 1;
+                span <= span + 4'd1;
             end
         end
         endcase
@@ -353,7 +353,7 @@ always_ff @(posedge CLK_32M) begin
         2: pixel_out <= scan_2;
         endcase
 
-        scan_pos <= scan_pos + 1;
+        scan_pos <= scan_pos + 10'd1;
     end
 end
 

@@ -30,8 +30,8 @@ wire CE_AUDIO, CE_AUDIO_P1;
 jtframe_frac_cen #(2) jt51_cen
 (
 	.clk(CLK_32M),
-	.n(10'd50),
-	.m(10'd447),
+	.n(10'd83),
+	.m(10'd742),
 	.cen({CE_AUDIO_P1, CE_AUDIO})
 );
 

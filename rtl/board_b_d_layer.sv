@@ -50,7 +50,7 @@ dpramv #(.widthad_a(13)) ram_l
 	.clock_b(CLK_32M),
 	.address_b({SV[8:3], SH[8:2]}),
 	.data_b(),
-	.wren_b(0),
+	.wren_b(1'd0),
 	.q_b(ram_l_dout)
 );
 
@@ -65,7 +65,7 @@ dpramv #(.widthad_a(13)) ram_h
 	.clock_b(CLK_32M),
 	.address_b({SV[8:3], SH[8:2]}),
 	.data_b(),
-	.wren_b(0),
+	.wren_b(1'd0),
 	.q_b(ram_h_dout)
 );
 
