@@ -1,30 +1,45 @@
+
 // http://wiki.pldarchive.co.uk/index.php?title=M72-R-3A
+
+import m72_pkg::*;
 
 module pal_3a
 (
-	input logic [19:0] a,
-    input logic bank,
-    input logic dben,
-    input logic m_io,
-    input logic [12:0] cod,
+	input logic [19:0] A,
+    
+    input board_type_t board_type,
+
+    input logic BANK,
+    input logic DBEN,
+    input logic M_IO,
+    input logic [12:0] COD,
 	output logic ls245_en, // TODO this signal might be better named
-	output logic rom0_ce,
-	output logic rom1_ce,
-	output logic ram_cs2,
-    output logic s,
-    output logic n_s
+    output [24:1] sdr_addr,
+    output writable,
+    output logic S
 );
 
 	always_comb begin
-        ls245_en = ((~dben & m_io & ~a[19] & ~a[18])
-                        | (~dben & m_io & ~a[19] & ~a[17])
-                        | (~dben & m_io & a[19] & a[18] & a[17] & a[16]));
-        rom0_ce = (m_io & ~a[19] & ~a[18] & ~a[17]);
-        rom1_ce = ((m_io & ~a[19] & ~a[18] & a[17]) | (m_io & a[19] & a[18] & a[17] & a[16]));
-        ram_cs2 = (m_io & ~a[19] & a[18] & ~a[17]);
+        case (board_type)
+        M72_RTYPE: begin
+            casex (A[19:16])
+            4'b010x: begin ls245_en = DBEN & M_IO; writable = 1; sdr_addr = REGION_CPU_RAM.base_addr[24:1] | A[16:1]; end
+            4'b00xx: begin ls245_en = DBEN & M_IO; writable = 0; sdr_addr = REGION_CPU_ROM.base_addr[24:1] | A[17:1]; end
+            4'b1111: begin ls245_en = DBEN & M_IO; writable = 0; sdr_addr = REGION_CPU_ROM.base_addr[24:1] | A[17:1]; end
+            default: begin ls245_en = 0; writable = 0; sdr_addr = 24'd0; end
+            endcase
+        end
+        M72_GALLOP: begin
+            casex (A[19:16])
+            4'b101x: begin ls245_en = DBEN & M_IO; writable = 1; sdr_addr = REGION_CPU_RAM.base_addr[24:1] | A[16:1]; end
+            4'b0xxx: begin ls245_en = DBEN & M_IO; writable = 0; sdr_addr = REGION_CPU_ROM.base_addr[24:1] | A[18:1]; end
+            4'b1111: begin ls245_en = DBEN & M_IO; writable = 0; sdr_addr = REGION_CPU_ROM.base_addr[24:1] | A[18:1]; end
+            default: begin ls245_en = 0; writable = 0; sdr_addr = 24'd0; end
+            endcase
+			end
+        endcase
 
-        s = cod[11];
-        n_s = ~cod[11];
+        S = COD[11];
 	end
 
 endmodule

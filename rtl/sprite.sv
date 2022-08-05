@@ -1,14 +1,16 @@
+import m72_pkg::*;
+
 module sprite (
-	input CLK_32M,
+    input CLK_32M,
     input CE_PIX,
 
-	input CLK_96M,
+    input CLK_96M,
 
-	input [15:0] DIN,
-	output [15:0] DOUT,
-	output DOUT_VALID,
-	
-	input [19:0] A,
+    input [15:0] DIN,
+    output [15:0] DOUT,
+    output DOUT_VALID,
+    
+    input [19:0] A,
     input [1:0] BYTE_SEL,
 
     input BUFDBEN,
@@ -24,18 +26,11 @@ module sprite (
 
     output [7:0] pix_test,
 
-    input [24:0] base_address,
-
-    output [1:0] sdr_wr_sel,
-	output [15:0] sdr_din,
-	input [15:0] sdr_dout,
-	output [24:1] sdr_addr,
-	output sdr_req,
-	input sdr_ack
+    input [63:0] sdr_data,
+    output [24:1] sdr_addr,
+    output sdr_req,
+    input sdr_rdy
 );
-
-assign sdr_wr_sel = 2'b00;
-assign sdr_din = 0;
 
 wire [7:0] dout_h, dout_l;
 
@@ -44,32 +39,32 @@ assign DOUT_VALID = MRD & BUFDBEN;
 
 dpramv #(.widthad_a(9)) ram_h
 (
-	.clock_a(CLK_32M),
-	.address_a(A[9:1]),
-	.q_a(dout_h),
-	.wren_a(MWR & BUFDBEN & BYTE_SEL[1]),
-	.data_a(DIN[15:8]),
+    .clock_a(CLK_32M),
+    .address_a(A[9:1]),
+    .q_a(dout_h),
+    .wren_a(MWR & BUFDBEN & BYTE_SEL[1]),
+    .data_a(DIN[15:8]),
 
-	.clock_b(CLK_32M),
-	.address_b(dma_rd_addr),
-	.data_b(),
-	.wren_b(0),
-	.q_b(dma_h)
+    .clock_b(CLK_32M),
+    .address_b(dma_rd_addr),
+    .data_b(),
+    .wren_b(0),
+    .q_b(dma_h)
 );
 
 dpramv #(.widthad_a(9)) ram_l
 (
-	.clock_a(CLK_32M),
-	.address_a(A[9:1]),
-	.q_a(dout_l),
-	.wren_a(MWR & BUFDBEN & BYTE_SEL[0]),
-	.data_a(DIN[7:0]),
+    .clock_a(CLK_32M),
+    .address_a(A[9:1]),
+    .q_a(dout_l),
+    .wren_a(MWR & BUFDBEN & BYTE_SEL[0]),
+    .data_a(DIN[7:0]),
 
-	.clock_b(CLK_32M),
-	.address_b(dma_rd_addr),
-	.data_b(),
-	.wren_b(0),
-	.q_b(dma_l)
+    .clock_b(CLK_32M),
+    .address_b(dma_rd_addr),
+    .data_b(),
+    .wren_b(0),
+    .q_b(dma_l)
 );
 
 reg [63:0] objram[128];
@@ -109,7 +104,7 @@ end
 
 reg line_buffer_ack, line_buffer_req;
 reg [3:0] line_buffer_color;
-reg [31:0] line_buffer_in;
+reg [63:0] line_buffer_in;
 reg [9:0] line_buffer_x;
 
 line_buffer line_buffer(
@@ -128,11 +123,25 @@ line_buffer line_buffer(
     .pixel_out(pix_test)
 );
 
-function [15:0] reverse_bytes(input [15:0] b);
-	begin
-		reverse_bytes = { b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15],
-                          b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7] };
-	end
+// d is 16 pixels stored as 2 sets of 4 bitplanes
+// d[31:0] is 8 pixels, made up from planes d[7:0], d[15:8], etc
+// d[63:32] is 8 pixels made up from planes d[39:32], d[47:40], etc
+// Returns 16 pixels stored as 4 bit planes d[15:0], d[31:16], etc
+function [63:0] deswizzle(input [63:0] d, input rev);
+    begin
+        integer i;
+        bit [7:0] plane[8];
+        bit [7:0] t;
+        for( i = 0; i < 8; i = i + 1 ) begin
+            t = d[(i*8) +: 8];
+            plane[i] = rev ? { t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7] } : t;
+        end
+
+        deswizzle[15:0]  = rev ? { plane[4], plane[0] } : { plane[0], plane[4] };
+        deswizzle[31:16] = rev ? { plane[5], plane[1] } : { plane[1], plane[5] };
+        deswizzle[47:32] = rev ? { plane[6], plane[2] } : { plane[2], plane[6] };
+        deswizzle[63:48] = rev ? { plane[7], plane[3] } : { plane[3], plane[7] };
+    end
 endfunction
 
 reg [63:0] cur_obj;
@@ -152,14 +161,17 @@ wire [8:0] row_y = obj_flipy ? (height_px - rel_y) : rel_y;
 
 always_ff @(posedge CLK_96M) begin
     reg old_v0 = 0;
+    reg sdr_wait = 0;
 
     reg [7:0] obj_ptr = 0;
     reg [3:0] st = 0;
     reg [3:0] span;
-	reg [15:0] code;
+    reg [15:0] code;
     reg [8:0] V;
 
     old_v0 <= VE[0];
+
+    sdr_req <= 0;
 
     if (old_v0 != VE[0]) begin
         // new line, reset
@@ -169,9 +181,11 @@ always_ff @(posedge CLK_96M) begin
     end else if (obj_ptr == 10'h80) begin
         // done, wait
         obj_ptr <= obj_ptr;
-    end else if (sdr_ack != sdr_req) begin
+    end else if (sdr_wait & ~sdr_rdy) begin
         // wait
     end else begin
+        sdr_wait <= 0;
+
         st <= st + 4'd1;
         case (st)
         0: cur_obj <= objram[obj_ptr];
@@ -191,41 +205,21 @@ always_ff @(posedge CLK_96M) begin
             code <= obj_code + row_y[8:4] + ( ( obj_flipx ? ( width - span - 1 ) : span ) * 16'd8 );
         end
         3: begin
-            sdr_addr <= base_address[24:1] + { code[11:0], obj_flipx, row_y[3:0], 1'b0 }; // 1st 16-bit of 1st column
-            sdr_req <= ~sdr_ack;
+            sdr_addr <= REGION_SPRITE.base_addr[24:1] + { code[11:0], row_y[3:0], 2'b00 };
+            sdr_req <= 1;
+            sdr_wait <= 1;
         end
         4: begin
-            line_buffer_in[15:0] <= obj_flipx ? reverse_bytes(sdr_dout) : sdr_dout;
-            sdr_addr <= base_address[24:1] + { code[11:0], obj_flipx, row_y[3:0], 1'b1 }; // 2nd 16-bit of 1st column
-            sdr_req <= ~sdr_ack;
-        end
-        5: begin
-            line_buffer_in[31:16] <= obj_flipx ? reverse_bytes(sdr_dout) : sdr_dout;
+            line_buffer_in <= deswizzle(sdr_data, obj_flipx);
             if (line_buffer_req != line_buffer_ack)
                 st <= st; // wait
             else begin
-                sdr_addr <= base_address[24:1] + { code[11:0], ~obj_flipx, row_y[3:0], 1'b0 }; // 1st 16-bit of 2nd column
-                sdr_req <= ~sdr_ack;
                 line_buffer_color <= obj_color;
                 line_buffer_x = obj_org_x + ( 10'd16 * span );
                 line_buffer_req <= ~line_buffer_ack;
             end
         end
-        6: begin
-            line_buffer_in[15:0] <= obj_flipx ? reverse_bytes(sdr_dout) : sdr_dout;
-            sdr_addr <= base_address[24:1] + { code[11:0], ~obj_flipx, row_y[3:0], 1'b1 }; // 2nd 16-bit of 2st column
-            sdr_req <= ~sdr_ack;
-        end
-        7: begin
-            line_buffer_in[31:16] <= obj_flipx ? reverse_bytes(sdr_dout) : sdr_dout;
-            if (line_buffer_req != line_buffer_ack)
-                st <= st; // wait
-            else begin
-                line_buffer_x = obj_org_x + 10'd8 + ( 10'd16 * span );
-                line_buffer_req <= ~line_buffer_ack;
-            end
-        end
-        8: begin
+        5: begin
             if (span == (width - 1)) begin
                 st <= 0;
                 obj_ptr <= obj_ptr + width;
@@ -249,7 +243,7 @@ module line_buffer(
 
     input wr_req,
     output reg wr_ack,
-    input [31:0] data_in,
+    input [63:0] data_in,
     input [3:0] color_in,
     input [9:0] position_in,
 
@@ -265,69 +259,69 @@ reg line_write = 0;
 wire [7:0] scan_0, scan_1, scan_2;
 dpramv #(.widthad_a(10)) buffer_0
 (
-	.clock_a(CLK_32M),
-	.address_a(scan_pos),
-	.q_a(scan_0),
-	.wren_a(scan_buffer == 1),
-	.data_a(8'd0),
+    .clock_a(CLK_32M),
+    .address_a(scan_pos),
+    .q_a(scan_0),
+    .wren_a(scan_buffer == 1),
+    .data_a(8'd0),
 
-	.clock_b(CLK_96M),
-	.address_b(line_position),
-	.data_b(line_pixel),
-	.wren_b(scan_buffer == 2 && line_write),
-	.q_b()
+    .clock_b(CLK_96M),
+    .address_b(line_position),
+    .data_b(line_pixel),
+    .wren_b(scan_buffer == 2 && line_write),
+    .q_b()
 );
 
 dpramv #(.widthad_a(10)) buffer_1
 (
-	.clock_a(CLK_32M),
-	.address_a(scan_pos),
-	.q_a(scan_1),
-	.wren_a(scan_buffer == 2),
-	.data_a(8'd0),
+    .clock_a(CLK_32M),
+    .address_a(scan_pos),
+    .q_a(scan_1),
+    .wren_a(scan_buffer == 2),
+    .data_a(8'd0),
 
-	.clock_b(CLK_96M),
-	.address_b(line_position),
-	.data_b(line_pixel),
-	.wren_b(scan_buffer == 0 && line_write),
-	.q_b()
+    .clock_b(CLK_96M),
+    .address_b(line_position),
+    .data_b(line_pixel),
+    .wren_b(scan_buffer == 0 && line_write),
+    .q_b()
 );
 
 dpramv #(.widthad_a(10)) buffer_2
 (
-	.clock_a(CLK_32M),
-	.address_a(scan_pos),
-	.q_a(scan_2),
-	.wren_a(scan_buffer == 0),
-	.data_a(8'd0),
+    .clock_a(CLK_32M),
+    .address_a(scan_pos),
+    .q_a(scan_2),
+    .wren_a(scan_buffer == 0),
+    .data_a(8'd0),
 
-	.clock_b(CLK_96M),
-	.address_b(line_position),
-	.data_b(line_pixel),
-	.wren_b(scan_buffer == 1 && line_write),
-	.q_b()
+    .clock_b(CLK_96M),
+    .address_b(line_position),
+    .data_b(line_pixel),
+    .wren_b(scan_buffer == 1 && line_write),
+    .q_b()
 );
 
 always_ff @(posedge CLK_96M) begin
-    reg [31:0] data;
+    reg [63:0] data;
     reg [3:0] color;
     reg [9:0] position;
-    reg [3:0] count = 0;
+    reg [4:0] count = 0;
 
     line_write <= 0;
     
     if (count != 0) begin
-		line_pixel <= { color, data[31], data[23], data[15], data[7] };
-        line_write <= data[31] | data[23] | data[15] | data[7];
+        line_pixel <= { color, data[63], data[47], data[31], data[15] };
+        line_write <= data[63] | data[47] | data[31] | data[15];
         line_position <= position;
         position <= position + 10'd1;
         count <= count - 4'd1;
-        data <= { data[30:23], data[22:15], data[14:7], data[6:0], 1'b0 };
+        data <= { data[62:0], 1'b0 };
     end else if (wr_req != wr_ack) begin
         data <= data_in;
         color <= color_in;
         position <= position_in;
-        count <= 4'd8;
+        count <= 5'd16;
         wr_ack <= wr_req;
     end
 end

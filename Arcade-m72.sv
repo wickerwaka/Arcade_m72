@@ -16,6 +16,7 @@
 //
 //============================================================================
 
+import m72_pkg::*;
 
 module emu
 (
@@ -319,61 +320,80 @@ wire reset = RESET | status[0] | buttons[1];
 ///////////////////////////////////////////////////////////////////////
 // SDRAM
 ///////////////////////////////////////////////////////////////////////
-wire [1:0] sdr_wr_sel1, sdr_wr_sel2;
-wire [15:0] sdr_din1, sdr_din2, sdr_dout1, sdr_dout2;
-wire [24:1] sdr_addr1, sdr_addr2;
-wire sdr_req1, sdr_req2, sdr_ack1, sdr_ack2;
+wire [63:0] sdr_sprite_dout;
+wire [24:1] sdr_sprite_addr;
+wire sdr_sprite_req, sdr_sprite_rdy;
+
+wire [31:0] sdr_bg_dout;
+wire [24:1] sdr_bg_addr;
+wire sdr_bg_req, sdr_bg_rdy;
+
+wire [15:0] sdr_cpu_dout, sdr_cpu_din;
+wire [24:1] sdr_cpu_addr;
+wire sdr_cpu_req;
+wire [1:0] sdr_cpu_wr_sel;
+
+reg [24:1] sdr_rom_addr;
+reg [15:0] sdr_rom_data;
+reg [1:0] sdr_rom_be;
+reg sdr_rom_req;
+
+wire sdr_rom_write = ioctl_download && (ioctl_index == 0);
+wire [24:1] sdr_ch3_addr = sdr_rom_write ? sdr_rom_addr : sdr_cpu_addr;
+wire [15:0] sdr_ch3_din = sdr_rom_write ? sdr_rom_data : sdr_cpu_din;
+wire [1:0] sdr_ch3_be = sdr_rom_write ? sdr_rom_be : sdr_cpu_wr_sel;
+wire sdr_ch3_rnw = sdr_rom_write ? 1'b0 : ~{|sdr_cpu_wr_sel};
+wire sdr_ch3_req = sdr_rom_write ? sdr_rom_req : sdr_cpu_req;
+wire sdr_ch3_rdy;
+wire sdr_cpu_rdy = sdr_ch3_rdy;
+wire sdr_rom_rdy = sdr_ch3_rdy;
+
+board_type_t board_type;
 
 sdram sdram
 (
 	.*,
+	.doRefresh(0),
 	.init(~pll_locked),
 	.clk(CLK_96M),
 
-	.addr0(ioctl_addr[24:1]),
-	.din0({ioctl_dout[7:0],ioctl_dout[7:0]}),
-	.dout0(),
-	.wrl0(~ioctl_addr[0]),
-	.wrh0(ioctl_addr[0]),
-	.req0(ioctl_rom_wr),
-	.ack0(ioctl_rom_wrack),
+	.ch1_addr(sdr_bg_addr),
+	.ch1_dout(sdr_bg_dout),
+	.ch1_req(sdr_bg_req),
+	.ch1_ready(sdr_bg_rdy),
 
-	.addr1(sdr_addr1),
-	.din1(sdr_din1),
-	.dout1(sdr_dout1),
-	.wrl1(sdr_wr_sel1[0]),
-	.wrh1(sdr_wr_sel1[1]),
-	.req1(sdr_req1),
-	.ack1(sdr_ack1),
+	.ch2_addr(sdr_sprite_addr),
+	.ch2_dout(sdr_sprite_dout),
+	.ch2_req(sdr_sprite_req),
+	.ch2_ready(sdr_sprite_rdy),
 
-	.addr2(sdr_addr2),
-	.din2(sdr_din2),
-	.dout2(sdr_dout2),
-	.wrl2(sdr_wr_sel2[0]),
-	.wrh2(sdr_wr_sel2[1]),
-	.req2(sdr_req2),
-	.ack2(sdr_ack2)
+	// multiplexed with rom download and cpu read/writes
+	.ch3_addr(sdr_ch3_addr),
+	.ch3_din(sdr_ch3_din),
+	.ch3_dout(sdr_cpu_dout),
+	.ch3_be(sdr_ch3_be),
+	.ch3_rnw(sdr_ch3_rnw),
+	.ch3_req(sdr_ch3_req),
+	.ch3_ready(sdr_ch3_rdy)
 );
 
-reg  ioctl_rom_wr = 0;
-wire ioctl_rom_wrack;
-always @(posedge clk_sys) begin
-	reg old_reset;
-	old_reset <= reset;
+rom_loader rom_loader(
+	.sys_clk(clk_sys),
+	.ram_clk(CLK_96M),
 
-	if(~old_reset && reset) ioctl_wait <= 0;
+	.ioctl_wr(ioctl_wr && !ioctl_index),
+	.ioctl_data(ioctl_dout[7:0]),
 
-	if (ioctl_wr && !ioctl_index) begin
-		ioctl_wait <= 1;
-		ioctl_rom_wr <= ~ioctl_rom_wr;
-	end else if(ioctl_wait && (ioctl_rom_wr == ioctl_rom_wrack)) begin
-		ioctl_wait <= 0;
-	end
-end
+	.ioctl_wait(ioctl_wait),
 
+	.sdr_addr(sdr_rom_addr),
+	.sdr_data(sdr_rom_data),
+	.sdr_be(sdr_rom_be),
+	.sdr_req(sdr_rom_req),
+	.sdr_rdy(sdr_rom_rdy),
 
-
-
+	.board_type(board_type)
+);
 
 ///////////////////         Keyboard           //////////////////
 reg btn_up       = 0;
@@ -469,6 +489,8 @@ m72 m72(
 	.AUDIO_L(AUDIO_L),
 	.AUDIO_R(AUDIO_R),
 
+	.board_type(board_type),
+
 	.coin({~m_coin2, ~m_coin1}),
 	
 	.start_buttons({~m_start2, ~m_start1}),
@@ -480,24 +502,22 @@ m72 m72(
 	
 	.dip_sw({~dip_sw[1], ~dip_sw[0]}),
 
-	.sys_clk(CLK_32M),
-	.ioctl_wr(ioctl_wr && !ioctl_index),
-	.ioctl_addr(ioctl_addr),
-	.ioctl_dout(ioctl_dout),
+	.sdr_sprite_addr(sdr_sprite_addr),
+	.sdr_sprite_dout(sdr_sprite_dout),
+	.sdr_sprite_req(sdr_sprite_req),
+	.sdr_sprite_rdy(sdr_sprite_rdy),
 
-	.sdr_wr_sel1(sdr_wr_sel1),
-	.sdr_din1(sdr_din1),
-	.sdr_dout1(sdr_dout1),
-	.sdr_addr1(sdr_addr1),
-	.sdr_req1(sdr_req1),
-	.sdr_ack1(sdr_ack1),
+	.sdr_bg_addr(sdr_bg_addr),
+	.sdr_bg_dout(sdr_bg_dout),
+	.sdr_bg_req(sdr_bg_req),
+	.sdr_bg_rdy(sdr_bg_rdy),
 
-	.sdr_wr_sel2(sdr_wr_sel2),
-	.sdr_din2(sdr_din2),
-	.sdr_dout2(sdr_dout2),
-	.sdr_addr2(sdr_addr2),
-	.sdr_req2(sdr_req2),
-	.sdr_ack2(sdr_ack2),
+	.sdr_cpu_dout(sdr_cpu_dout),
+	.sdr_cpu_din(sdr_cpu_din),
+	.sdr_cpu_addr(sdr_cpu_addr),
+	.sdr_cpu_req(sdr_cpu_req),
+	.sdr_cpu_rdy(sdr_cpu_rdy),
+	.sdr_cpu_wr_sel(sdr_cpu_wr_sel),
 
 	.en_layer_a(en_layer_a),
 	.en_layer_b(en_layer_b),

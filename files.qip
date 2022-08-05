@@ -1,4 +1,5 @@
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/m72.v
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/m72_pkg.sv
 set_global_assignment -name SDC_FILE Arcade-m72.sdc
 set_global_assignment -name SYSTEMVERILOG_FILE Arcade-m72.sv
 set_global_assignment -name SYSTEMVERILOG_FILE Arcade-m72.sv
@@ -7,6 +8,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/kna6034201.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/kna70h015.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/kna91h014.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/board_b_d_layer.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/board_b_d_sdram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/board_b_d.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/rom.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/sound.sv

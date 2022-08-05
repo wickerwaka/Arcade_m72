@@ -1,11 +1,4 @@
 module board_b_d_layer(
-    input sys_clk,
-    input ioctl_wr,
-
-	input [24:0] ioctl_addr,
-	input [7:0]  ioctl_dout,
-    input [3:0] gfx_cs,
-
     input CLK_32M,
     input CE_PIX,
 
@@ -30,6 +23,11 @@ module board_b_d_layer(
     output [3:0] COL,
     output CP15,
     output CP8,
+
+    input [31:0] sdr_data,
+	output [19:0] sdr_addr,
+	output sdr_req,
+	input sdr_rdy,
 
     input enabled,
     input paused
@@ -69,30 +67,17 @@ dpramv #(.widthad_a(13)) ram_h
 	.q_b(ram_h_dout)
 );
 
-wire [31:0] dout;
-
-eprom_32_32 rom(
-	.clk(CLK_32M),
-	.addr({COD[11:0], RV[2:0]}),
-	.data(dout),
-
-	.clk_in(sys_clk),
-	.addr_in(ioctl_addr[16:0]),
-	.data_in(ioctl_dout),
-	.wr_in(ioctl_wr),
-	.cs_in(|gfx_cs)
-);
-
+reg [31:0] rom_data;
 wire [3:0] BITF, BITR;
 
 kna6034201 kna6034201(
     .clock(CLK_32M),
     .CE_PIXEL(CE_PIX),
     .LOAD(SH[2:0] == 3'b111),
-    .byte_1(enabled ? dout[7:0] : 8'h00),
-    .byte_2(enabled ? dout[15:8] : 8'h00),
-    .byte_3(enabled ? dout[23:16] : 8'h00),
-    .byte_4(enabled ? dout[31:24] : 8'h00),
+    .byte_1(enabled ? rom_data[7:0] : 8'h00),
+    .byte_2(enabled ? rom_data[15:8] : 8'h00),
+    .byte_3(enabled ? rom_data[23:16] : 8'h00),
+    .byte_4(enabled ? rom_data[31:24] : 8'h00),
     .bit_1(BITF[0]),
     .bit_2(BITF[1]),
     .bit_3(BITF[2]),
@@ -140,8 +125,24 @@ always @(posedge CLK_32M) begin
 end
 
 always @(posedge CLK_32M) begin
+    reg do_rom;
+
+    sdr_req <= 0;
+    do_rom <= 0;
+
+    if (do_rom) begin
+        sdr_addr <= {COD[11:0], RV[2:0]};
+        sdr_req <= 1;
+    end else if (sdr_rdy) begin
+        rom_data <= sdr_data;
+    end
+
     if (CE_PIX) begin
-        if (SH[2:0] == 2'b001) { VREV, HREV1, COD } <= { ram_h_dout, ram_l_dout };
+        if (SH[2:0] == 2'b001) begin
+            { VREV, HREV1, COD } <= { ram_h_dout, ram_l_dout };
+            do_rom <= 1;
+        end
+
         if (SH[2:0] == 3'b101) row_data1 <= ram_l_dout;
         if (SH[2:0] == 3'b111) begin
             row_data <= row_data1;

@@ -1,12 +1,13 @@
-`timescale 1 ns / 1 ns
+import m72_pkg::*;
 
 module m72 (
 	input CLK_32M,
 	input CLK_96M,
 
-	input sys_clk,
 	input reset_n,
 	output reg ce_pix,
+
+	input board_type_t board_type,
 	
 	input z80_reset_n,
 
@@ -22,10 +23,6 @@ module m72 (
 	output [15:0] AUDIO_L,
 	output [15:0] AUDIO_R,
 
-	input        ioctl_wr,
-	input [24:0] ioctl_addr,
-	input [7:0]  ioctl_dout,
-
 	input [1:0] coin,
 	input [1:0] start_buttons,
 	input [3:0] p1_joystick,
@@ -37,19 +34,22 @@ module m72 (
 
 	input pause_rq,
 
-	output [1:0] sdr_wr_sel1,
-	output [15:0] sdr_din1,
-	input [15:0] sdr_dout1,
-	output [24:1] sdr_addr1,
-	output sdr_req1,
-	input sdr_ack1,
+	output [24:1] sdr_sprite_addr,
+	input [63:0] sdr_sprite_dout,
+	output sdr_sprite_req,
+	input sdr_sprite_rdy,
 
-	output [1:0] sdr_wr_sel2,
-	output [15:0] sdr_din2,
-	input [15:0] sdr_dout2,
-	output [24:1] sdr_addr2,
-	output sdr_req2,
-	input sdr_ack2,
+	output [24:1] sdr_bg_addr,
+	input [31:0] sdr_bg_dout,
+	output sdr_bg_req,
+	input sdr_bg_rdy,
+
+	output [24:1] sdr_cpu_addr,
+	input [15:0] sdr_cpu_dout,
+	output [15:0] sdr_cpu_din,
+	output sdr_cpu_req,
+	input sdr_cpu_rdy,
+	output [1:0] sdr_cpu_wr_sel,
 
 	input en_layer_a,
 	input en_layer_b,
@@ -93,7 +93,7 @@ always @(posedge CLK_32M) begin
 		ce_4x_cpu <= 0;
 
 		if (~paused) begin
-			if (~ls245_en && (sdr_ack1 == sdr_req1)) begin
+			if (~ls245_en && ~mem_rq_active) begin
 				cpu_ce_counter <= cpu_ce_counter + 4'd1;
 				ce_4x_cpu <= 1;
 				ce_cpu <= cpu_ce_counter[1:0] == 2'b11;
@@ -142,6 +142,8 @@ wire [15:0] cpu_word_out = cpu_mem_addr[0] ? { cpu_mem_out[7:0], 8'h00 } : cpu_m
 wire [19:0] cpu_word_addr = { cpu_mem_addr[19:1], 1'b0 };
 wire [1:0] cpu_word_byte_sel = cpu_mem_addr[0] ? { cpu_mem_sel[0], 1'b0 } : cpu_mem_sel;
 reg [15:0] cpu_ram_rom_data;
+wire [24:1] cpu_region_addr;
+wire cpu_region_writable;
 
 function [15:0] word_shuffle(input [19:0] addr, input [15:0] data);
 	begin
@@ -155,7 +157,6 @@ reg b_d_dout_valid_lat, obj_pal_dout_valid_lat, sound_dout_valid_lat, sprite_dou
 always @(posedge CLK_32M or negedge reset_n)
 begin
 	if (!reset_n) begin
-		mem_rq_active <= 0;
 		b_d_dout_valid_lat <= 0;
 		obj_pal_dout_valid_lat <= 0;
 		sound_dout_valid_lat <= 0;
@@ -168,20 +169,28 @@ begin
 		obj_pal_dout_valid_lat <= obj_pal_dout_valid;
 		sound_dout_valid_lat <= sound_dout_valid;
 		sprite_dout_valid_lat <= sprite_dout_valid;
+	end
+end
 
-		if (ls245_en && ((cpu_mem_read_w & ~cpu_mem_read_lat) || (cpu_mem_write_w & ~cpu_mem_write_lat))) begin // sdram request
-			sdr_addr1 <= rom0_ce ? { 2'b00, cpu_word_addr[16:1] } :
-				rom1_ce ? { 2'b01, cpu_word_addr[16:1] } :
-				{ 2'b10, cpu_word_addr[16:1] };
-			sdr_wr_sel1 <= 2'b00;
-			if (cpu_mem_write & ram_cs2 ) begin
-				sdr_wr_sel1 <= cpu_word_byte_sel;
-				sdr_din1 <= cpu_word_out;
+always @(posedge CLK_96M or negedge reset_n)
+begin
+	if (!reset_n) begin
+		mem_rq_active <= 0;
+	end else begin
+		sdr_cpu_req <= 0;
+		if (!mem_rq_active) begin
+			if (ls245_en && ((cpu_mem_read_w & ~cpu_mem_read_lat) || (cpu_mem_write_w & ~cpu_mem_write_lat))) begin // sdram request
+				sdr_cpu_wr_sel <= 2'b00;
+				sdr_cpu_addr <= cpu_region_addr;
+				if (cpu_mem_write & cpu_region_writable ) begin
+					sdr_cpu_wr_sel <= cpu_word_byte_sel;
+					sdr_cpu_din <= cpu_word_out;
+				end
+				sdr_cpu_req <= 1;
+				mem_rq_active <= 1;
 			end
-			sdr_req1 <= ~sdr_ack1;
-			mem_rq_active <= 1;
-		end else if ((sdr_ack1 == sdr_req1) && mem_rq_active) begin
-			cpu_ram_rom_data <= sdr_dout1;
+		end else if (sdr_cpu_rdy) begin
+			cpu_ram_rom_data <= sdr_cpu_dout;
 			mem_rq_active <= 0;
 		end
 	end
@@ -192,11 +201,6 @@ assign cpu_mem_in = b_d_dout_valid_lat ? word_shuffle(cpu_mem_addr, b_d_dout) :
 					sound_dout_valid_lat ? word_shuffle(cpu_mem_addr, sound_dout) :
 					sprite_dout_valid_lat ? word_shuffle(cpu_mem_addr, sprite_dout) :
 					word_shuffle(cpu_mem_addr, cpu_ram_rom_data);
-
-wire ioctl_h0_cs, ioctl_h1_cs, ioctl_l0_cs, ioctl_l1_cs;
-wire [3:0] ioctl_gfx_a_cs;
-wire [3:0] ioctl_gfx_b_cs;
-wire [7:0] ioctl_sprite_cs;
 
 wire ls245_en, rom0_ce, rom1_ce, ram_cs2;
 
@@ -277,17 +281,16 @@ cpu v30(
 );
 
 pal_3a pal_3a(
-	.a(cpu_mem_addr),
-	.bank(),
-	.dben(~DBEN), // FIXME TODO
-	.m_io(MRD | MWR),
-	.cod(),
+	.A(cpu_mem_addr),
+	.BANK(),
+	.DBEN(DBEN),
+	.M_IO(MRD | MWR),
+	.COD(),
+	.board_type(board_type),
 	.ls245_en(ls245_en),
-	.rom0_ce(rom0_ce),
-	.rom1_ce(rom1_ce),
-	.ram_cs2(ram_cs2),
-	.s(),
-	.n_s()
+	.sdr_addr(cpu_region_addr),
+	.writable(cpu_region_writable),
+	.S()
 );
 
 wire SW, FLAG, DSW, SND, FSET, DMA_ON, ISET, INTCS;
@@ -323,18 +326,6 @@ pal_3d pal_3d(
     .SOUND(SOUND),
     .SDBEN(SDBEN)
 );
-
-download_selector download_selector(
-	.ioctl_addr(ioctl_addr),
-	.h0_cs(ioctl_h0_cs),
-	.h1_cs(ioctl_h1_cs),
-	.l0_cs(ioctl_l0_cs),
-	.l1_cs(ioctl_l1_cs),
-	.gfx_a_cs(ioctl_gfx_a_cs),
-	.gfx_b_cs(ioctl_gfx_b_cs),
-	.sprite_cs(ioctl_sprite_cs)
-);
-
 
 reg old_vblk, old_hint;
 // assign cpu_int_rq = (vblank_trig | hint_trig); TODO
@@ -401,14 +392,7 @@ wire P1L;
 
 board_b_d board_b_d(
 	.CLK_32M(CLK_32M),
-
-    .sys_clk(sys_clk),
-    .ioctl_wr(ioctl_wr),
-	.ioctl_addr(ioctl_addr),
-	.ioctl_dout(ioctl_dout),
-
-    .gfx_a_cs(ioctl_gfx_a_cs),
-    .gfx_b_cs(ioctl_gfx_b_cs),
+	.CLK_96M(CLK_96M),
 
     .CE_PIX(ce_pix),
 
@@ -438,6 +422,11 @@ board_b_d board_b_d(
 	.GREEN(char_g),
 	.BLUE(char_b),
 	.P1L(P1L),
+
+	.sdr_data(sdr_bg_dout),
+	.sdr_addr(sdr_bg_addr),
+	.sdr_req(sdr_bg_req),
+	.sdr_rdy(sdr_bg_rdy),
 
 	.paused(paused),
 
@@ -541,17 +530,13 @@ sprite sprite(
 	.HBLK(HBLK),
 	.pix_test(obj_pix),
 
-	.base_address('h80000),
-
 	.TNSL(TNSL),
 	.DMA_ON(DMA_ON & ~sprite_freeze),
 
-	.sdr_wr_sel(sdr_wr_sel2),
-	.sdr_din(sdr_din2),
-	.sdr_dout(sdr_dout2),
-	.sdr_addr(sdr_addr2),
-	.sdr_req(sdr_req2),
-	.sdr_ack(sdr_ack2)
+	.sdr_data(sdr_sprite_dout),
+	.sdr_addr(sdr_sprite_addr),
+	.sdr_req(sdr_sprite_req),
+	.sdr_rdy(sdr_sprite_rdy)
 );
 
 

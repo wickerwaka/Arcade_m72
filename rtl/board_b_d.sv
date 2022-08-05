@@ -1,13 +1,6 @@
 module board_b_d (
-    input sys_clk,
-    input ioctl_wr,
-	input [24:0] ioctl_addr,
-	input [7:0]  ioctl_dout,
-
-    input [3:0] gfx_a_cs,
-    input [3:0] gfx_b_cs,
-
     input CLK_32M,
+    input CLK_96M,
     input CE_PIX,
 
     output [15:0] DOUT,
@@ -35,6 +28,11 @@ module board_b_d (
     output [4:0] GREEN,
     output [4:0] BLUE,
     output P1L,
+
+	input [63:0] sdr_data,
+	output [24:1] sdr_addr,
+	output sdr_req,
+	input sdr_rdy,
 
     input paused,
     
@@ -66,15 +64,32 @@ wire [15:0] DOUT_A, DOUT_B;
 assign DOUT = pal_dout_valid ? pal_dout : RDA ? DOUT_A : DOUT_B;
 assign DOUT_VALID = RDA | RDB | pal_dout_valid;
 
+wire [19:0] addr_a, addr_b;
+wire [31:0] data_a, data_b;
+wire req_a, req_b;
+wire rdy_a, rdy_b;
+
+board_b_d_sdram board_b_d_sdram(
+    .clk_ram(CLK_96M),
+    .clk(CLK_32M),
+
+    .addr_a(addr_a),
+    .data_a(data_a),
+    .req_a(req_a),
+    .rdy_a(rdy_a),
+
+    .addr_b(addr_b),
+    .data_b(data_b),
+    .req_b(req_b),
+    .rdy_b(rdy_b),
+
+    .sdr_addr(sdr_addr),
+    .sdr_data(sdr_data),
+    .sdr_req(sdr_req),
+    .sdr_rdy(sdr_rdy)
+);
 
 board_b_d_layer layer_a(
-    .sys_clk(sys_clk),
-    .ioctl_wr(ioctl_wr),
-    .ioctl_addr(ioctl_addr),
-    .ioctl_dout(ioctl_dout),
-
-    .gfx_cs(gfx_a_cs),
-
     .CLK_32M(CLK_32M),
     .CE_PIX(CE_PIX),
 
@@ -100,19 +115,17 @@ board_b_d_layer layer_a(
     .CP15(CP15A),
     .CP8(CP8A),
 
+    .sdr_addr(addr_a),
+    .sdr_data(data_a),
+    .sdr_req(req_a),
+    .sdr_rdy(rdy_a),
+
     .enabled(en_layer_a),
     .paused(paused)
 );
 
 
 board_b_d_layer layer_b(
-    .sys_clk(sys_clk),
-    .ioctl_wr(ioctl_wr),
-    .ioctl_addr(ioctl_addr),
-    .ioctl_dout(ioctl_dout),
-
-    .gfx_cs(gfx_b_cs),
-
     .CLK_32M(CLK_32M),
     .CE_PIX(CE_PIX),
 
@@ -137,6 +150,11 @@ board_b_d_layer layer_b(
     .COL(COLB),
     .CP15(CP15B),
     .CP8(CP8B),
+
+    .sdr_addr(addr_b),
+    .sdr_data(data_b),
+    .sdr_req(req_b),
+    .sdr_rdy(rdy_b),
 
     .enabled(en_layer_b),
     .paused(paused)
