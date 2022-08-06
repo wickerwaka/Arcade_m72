@@ -1,0 +1,77 @@
+<misterromdescription>
+    <name>X Multiply (Japan, M72 hardware)</name>
+    <mameversion>0240</mameversion>
+    <setname>xmultiplm72</setname>
+    <year>1989</year>
+    <manufacturer>Irem</manufacturer>
+    <category></category>
+    <rbf>irem_m72</rbf>
+
+    <buttons names="1,2,3,4,Start,Coin,Pause" default="A,B,X,Y,L,R,Start"/>
+
+    <switches default="ff,ff">
+        <!-- DSW -->
+        <dip name="Difficulty" bits="0,1" ids="Hard,Easy,Very Easy,Normal"/>
+        <dip name="Lives" bits="2,3" ids="4,2,1,3"/>
+        <dip name="Coin A" bits="4,5" ids="5/1,3/1,2/1,1/1"/>
+        <dip name="Coin B" bits="6,7" ids="1/6,1/5,1/3,1/2"/>
+        <dip name="Coinage" bits="4,7" ids="Free Play,8/3,5/3,3/2,2/3,1/6,1/5,1/4,1/3,1/2,6/1,5/1,4/1,3/1,2/1,1/1"/>
+        <dip name="Flip Screen" bits="8" ids="On,Off"/>
+        <dip name="Cabinet" bits="9" ids="Upright,Upright  On,Cocktail,Upright  Off"/>
+        <dip name="Coin Mode" bits="10" ids="Mode 2,Mode 1"/>
+        <dip name="Demo Sounds" bits="11" ids="Off,On"/>
+        <dip name="Upright (double) Mode" bits="12" ids="On,Off"/>
+        <dip name="Allow Continue" bits="13" ids="No,Yes"/>
+        <dip name="Unused" bits="14" ids="On,Off"/>
+        <dip name="Service Mode" bits="15" ids="On,Off"/>
+    </switches>
+
+    <rom index="0" zip="xmultiplm72.zip|xmultipl.zip" md5="None">
+
+        <!-- maincpu - starts at 0x0 -->
+        <interleave output="16">
+            <part name="xm_c-l3-.ic34" crc="93fdd200" map="01"/>
+            <part name="xm_c-h3-.ic43" crc="20685021" map="10"/>
+        </interleave>
+        <interleave output="16">
+            <part name="xm_c-l0-.ic37" crc="06a9e213" map="01"/>
+            <part name="xm_c-h0-.ic40" crc="9438dd8a" map="10"/>
+        </interleave>
+        <part repeat="0x40000"> FF</part>
+
+        <!-- sprites - starts at 0xA0000 -->
+        <part name="t44.00.ic53" crc="db45186e"/>
+        <part name="t45.01.ic52" crc="4d0764d4"/>
+        <part name="t46.10.ic51" crc="f0c465a4"/>
+        <part name="t47.11.ic50" crc="1263b24b"/>
+        <part name="t48.20.ic49" crc="4129944f"/>
+        <part name="t49.21.ic48" crc="2346e6f9"/>
+        <part name="t50.30.ic47" crc="e322543e"/>
+        <part name="t51.31.ic46" crc="229bf7b1"/>
+
+        <!-- gfx2 - starts at 0x1A0000 -->
+        <part name="t53.a0" crc="1a082494"/>
+        <part name="t54.a1" crc="076c16c5"/>
+        <part name="t55.a2" crc="25d877a5"/>
+        <part name="t56.a3" crc="5b1213f5"/>
+
+        <!-- gfx3 - starts at 0x220000 -->
+        <part name="t57.b0" crc="0a84e0c7"/>
+        <part name="t58.b1" crc="a874121d"/>
+        <part name="t59.b2" crc="69deb990"/>
+        <part name="t60.b3" crc="14c69f99"/>
+
+        <!-- samples - starts at 0x2A0000 -->
+        <part name="t52.v0.ic44" crc="2db1bd80"/>
+        <part repeat="0x20000"> FF</part>
+
+        <!-- mcu - starts at 0x2E0000 -->
+        <part name="xm_c-pr-.ic1" crc="c8ceb3cd"/>
+
+        <!-- Total 0x2E1000 bytes - 2948 kBytes -->
+    </rom>
+
+    <rom index="1">
+        <part>00</part>
+    </rom>
+</misterromdescription>

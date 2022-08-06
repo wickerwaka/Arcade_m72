@@ -1,0 +1,77 @@
+<misterromdescription>
+    <name>R-Type (Japan)</name>
+    <mameversion>0240</mameversion>
+    <setname>rtypej</setname>
+    <year>1987</year>
+    <manufacturer>Irem</manufacturer>
+    <category></category>
+    <rbf>irem_m72</rbf>
+
+    <buttons names="1,2,3,4,Start,Coin,Pause" default="A,B,X,Y,L,R,Start"/>
+
+    <switches default="ff,ff">
+        <!-- DSW -->
+        <dip name="Lives" bits="0,1" ids="5,4,2,3"/>
+        <dip name="Demo Sounds" bits="2" ids="On,Off"/>
+        <dip name="Bonus Life" bits="3" ids="50K 150K 250K 400K 600K,100K 200K 350K 500K 700K"/>
+        <dip name="Coin A" bits="4,5" ids="5/1,3/1,2/1,1/1"/>
+        <dip name="Coin B" bits="6,7" ids="1/6,1/5,1/3,1/2"/>
+        <dip name="Coinage" bits="4,7" ids="Free Play,8/3,5/3,3/2,2/3,1/6,1/5,1/4,1/3,1/2,6/1,5/1,4/1,3/1,2/1,1/1"/>
+        <dip name="Flip Screen" bits="8" ids="On,Off"/>
+        <dip name="Cabinet" bits="9" ids="Upright,Cocktail"/>
+        <dip name="Coin Mode" bits="10" ids="Mode 2,Mode 1"/>
+        <dip name="Difficulty" bits="11" ids="Hard,Normal"/>
+        <dip name="Allow Continue" bits="12" ids="No,Yes"/>
+        <dip name="Stop Mode" bits="13" ids="On,Off"/>
+        <dip name="Invulnerability" bits="14" ids="On,Off"/>
+        <dip name="Service Mode" bits="15" ids="On,Off"/>
+    </switches>
+
+    <rom index="0" zip="rtypej.zip|rtype.zip" md5="None">
+
+        <!-- maincpu - starts at 0x0 -->
+        <interleave output="16">
+            <part name="rt_r-l0-.3b" crc="858cc0f6" map="01"/>
+            <part name="rt_r-h0-.1b" crc="c2940df2" map="10"/>
+        </interleave>
+        <interleave output="16">
+            <part name="rt_r-l1-.3c" crc="4821141c" map="01"/>
+            <part name="rt_r-h1-.1c" crc="5bcededa" map="10"/>
+        </interleave>
+        <part repeat="0x60000"> FF</part>
+
+        <!-- sprites - starts at 0xA0000 -->
+        <part name="rt_r-00.1h" crc="dad53bc0"/>
+        <part name="rt_r-01.1j" crc="5e441e7f"/>
+        <part name="rt_r-10.1k" crc="d6a66298"/>
+        <part name="rt_r-11.1l" crc="791df4f8"/>
+        <part name="rt_r-20.3h" crc="fc247c8a"/>
+        <part name="rt_r-21.3j" crc="ed793841"/>
+        <part name="rt_r-30.3k" crc="eb02a1cb"/>
+        <part name="rt_r-31.3l" crc="8558355d"/>
+        <part repeat="0xA0000"> FF</part>
+
+        <!-- gfx2 - starts at 0x1A0000 -->
+        <part name="rt_b-a0.3c" crc="4e212fb0"/>
+        <part name="rt_b-a1.3d" crc="8a65bdff"/>
+        <part name="rt_b-a2.3a" crc="5a4ae5b9"/>
+        <part name="rt_b-a3.3e" crc="73327606"/>
+        <part repeat="0x60000"> FF</part>
+
+        <!-- gfx3 - starts at 0x220000 -->
+        <part name="rt_b-b0.3j" crc="a7b17491"/>
+        <part name="rt_b-b1.3k" crc="b9709686"/>
+        <part name="rt_b-b2.3h" crc="433b229a"/>
+        <part name="rt_b-b3.3f" crc="ad89b072"/>
+        <part repeat="0xA0000"> FF</part>
+
+        <!-- mcu - starts at 0x2E0000 -->
+        <part repeat="0x1000"> FF</part>
+
+        <!-- Total 0x2E1000 bytes - 2948 kBytes -->
+    </rom>
+
+    <rom index="1">
+        <part>00</part>
+    </rom>
+</misterromdescription>
