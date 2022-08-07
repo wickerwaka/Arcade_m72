@@ -27,5 +27,5 @@ set_global_assignment -name VHDL_FILE rtl/v30/divider.vhd
 
 set_global_assignment -name QIP_FILE rtl/jt51/jt51.qip
 set_global_assignment -name QIP_FILE rtl/T80/T80.qip
-
+set_global_assignment -name QIP_FILE rtl/8051/mc8051.qip
 
