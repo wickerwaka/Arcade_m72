@@ -1,0 +1,34 @@
+8051
+
+External memory
+0xc000 - 0xcfff : 4kB of dual port memory mapped to 0xb000 - 0xb0fff on CPU
+0x0002 : Read 8-bit latch from z80. Write to acknowledge
+0x0000 : Read, sample byte and increment sample pointer. Write, set low sample address
+0x0001 : Write, set high sample address
+
+Sample address is high << 8 + 5, low << 5
+
+Port 1 writes unsigned 8-bit pcm data to dac
+
+Ext Int 0 raised when cpu writes for ffe, cleared on read
+Ext Int 1 raised when latch is written, cleared on read
+
+z80
+Port 0x82 writes to mcu latch
+Port 0x84 reads from second sound latch
+
+v30
+Write to port 0xc0 sets second sound latch, raises NMI on z80
+
+
+TODO:
+- Add 8051
+- Setup program rom and support in mra
+- Add Dual port memory with mailbox
+- Validate that mcu is running and doing protection work, use nspiritj
+- 8-bit latch from z80 to mcu
+- 8-bit latch from v30 to z80
+- Add sample rom loading
+- Add sample addressing
+- Mix DAC output with other audio
+
