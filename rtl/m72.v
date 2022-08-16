@@ -107,7 +107,7 @@ always @(posedge CLK_32M) begin
 				cpu_ce_counter <= cpu_ce_counter + 7'd1;
 				ce_4x_cpu <= 1;
 				ce_cpu <= cpu_ce_counter[1:0] == 2'b11;
-				ce_cpu_slow <= cpu_ce_counter[1:0] == 7'b11;
+				ce_cpu_slow <= cpu_ce_counter[2:0] == 3'b011;
 			end
 		end
 	end
@@ -183,9 +183,12 @@ begin
 	end
 end
 
-reg [15:0] cpu_shared_ram_dout_r;
+reg [15:0] cpu_shared_ram_dout_r = 0;
+always_ff @(posedge CLK_32M) begin
+	if (MRD) cpu_shared_ram_dout_r <= cpu_shared_ram_dout;
+end
 
-always @(posedge CLK_96M or negedge reset_n)
+always_ff @(posedge CLK_96M or negedge reset_n)
 begin
 	if (!reset_n) begin
 		mem_rq_active <= 0;
@@ -207,8 +210,6 @@ begin
 			mem_rq_active <= 0;
 		end
 	end
-
-	if (MRD) cpu_shared_ram_dout_r <= cpu_shared_ram_dout;
 end
 
 assign cpu_mem_in = b_d_dout_valid_lat ? word_shuffle(cpu_mem_addr, b_d_dout) :
@@ -254,7 +255,7 @@ wire irq_ack;
 
 cpu v30(
 	.clk(CLK_32M),
-	.ce(ce_cpu_slow), // TODO
+	.ce(ce_cpu), // TODO
 	.ce_4x(ce_4x_cpu), // TODO
 	.reset(~reset_n),
 	.turbo(0),
@@ -595,7 +596,7 @@ dualport_mailbox_2kx16 mcu_shared_ram(
 
 mcu mcu(
 	.CLK_32M(CLK_32M),
-	.ce_8m(ce_cpu),
+	.ce_8m(ce_cpu_slow),
 	.reset(~reset_n),
 
 	.ext_ram_addr(mcu_ram_addr),

@@ -229,6 +229,9 @@ localparam CONF_STR = {
 	"O[6:5],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
 	"O[7],OSD Pause,Off,On;",
 	"O[9:8],Video Timing,Normal,50Hz,57Hz,60Hz;",
+	"O[10],Orientation,Vert,Horz;",
+	"O[11],Rotation,CW,CCW;",
+	"O[12],Flip,Off,On;",
 	"-;",
 	"DIP;",
 	"-;",
@@ -242,7 +245,7 @@ localparam CONF_STR = {
 	"P1O[69],Sprite Freeze,Off,On;",
 	"-;",
 	"T[0],Reset;",
-	"DEFMRA,/_Arcade/r-type.mra;",
+	"DEFMRA,/_Arcade/m72.mra;",
 	"V,v",`BUILD_DATE 
 };
 
@@ -266,6 +269,7 @@ wire [15:0] joy = joystick_0 | joystick_1;
 
 wire [21:0] gamma_bus;
 wire        direct_video;
+wire        video_rotated;
 
 wire clk_sys = CLK_32M;
 
@@ -279,6 +283,7 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 
 	.forced_scandoubler(forced_scandoubler),
 	.new_vmode(new_vmode),
+	.video_rotated(video_rotated),
 
 	.buttons(buttons),
 	.status(status),
@@ -533,6 +538,9 @@ m72 m72(
 	.bram_cs(bram_cs),
 	.bram_wr(bram_wr),
 
+	.pause_rq(system_pause),
+	.ddr_debug_data(ddr_debug_data),
+	
 	.en_layer_a(en_layer_a),
 	.en_layer_b(en_layer_b),
 	.en_sprites(en_sprites),
@@ -541,13 +549,10 @@ m72 m72(
 
 	.sprite_freeze(status[69]),
 
-	.pause_rq(system_pause | debug_stall),
-
 	.video_50hz(video_50hz),
 	.video_57hz(video_57hz),
 	.video_60hz(video_60hz),
 
-	.ddr_debug_data(ddr_debug_data)
 );
 
 wire VGA_DE_MIXER;
@@ -608,9 +613,16 @@ pause pause(
 	.OSD_STATUS(OSD_STATUS)
 );
 
+wire rotate_ccw = status[11];
+wire no_rotate = status[10] | direct_video;
+wire flip = status[12];
+screen_rotate screen_rotate(.*);
+
 assign CLK_VIDEO = CLK_32M;
 
 ddr_debug_data_t ddr_debug_data;
+
+`ifdef M72_DEBUG
 wire debug_stall;
 ddr_debug ddr_debug(
 	.*,
@@ -619,5 +631,6 @@ ddr_debug ddr_debug(
 	.reset(reset | ~pll_locked),
 	.stall(debug_stall)
 );
+`endif
 
 endmodule
