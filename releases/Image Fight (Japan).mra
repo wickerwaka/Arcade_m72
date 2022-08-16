@@ -1,7 +1,7 @@
 <misterromdescription>
-  <name>Image Fight (World)</name>
+  <name>Image Fight (Japan)</name>
   <mameversion>0226</mameversion>
-  <setname>imgfight</setname>
+  <setname>imgfightj</setname>
   <year>1988</year>
   <manufacturer>IREM</manufacturer>
   <category>Shooter</category>
@@ -21,19 +21,19 @@
     <dip bits="15" ids="Off,On" name="Service Mode"></dip>
   </switches>
   <!-- ROM data -->
-  <rom index="0" zip="imgfight.zip" md5="none">
+  <rom index="0" zip="imgfightj.zip|imgfight.zip" md5="none">
     <!-- board type -->
     <part>01</part>
 
     <!-- maincpu -->
     <part>00 08 00 00</part>
     <interleave output="16">
-        <part name="if-c-h0-a.ic40" crc="f5c94464" map="10" />
-        <part name="if-c-l0-a.ic37" crc="87c534fe" map="01" />
+        <part name="if-c-h0.ic40" crc="592d2d80" map="10" />
+        <part name="if-c-l0.ic37" crc="61f89056" map="01" />
     </interleave>
     <interleave output="16">
-        <part name="if-c-h0-a.ic40" crc="f5c94464" map="10" />
-        <part name="if-c-l0-a.ic37" crc="87c534fe" map="01" />
+        <part name="if-c-h0.ic40" crc="592d2d80" map="10" />
+        <part name="if-c-l0.ic37" crc="61f89056" map="01" />
     </interleave>
     <interleave output="16">
         <part name="if-c-h3.ic43" crc="ea030541" map="10" />
@@ -69,7 +69,7 @@
 
     <!-- mcu -->
     <part>00 00 10 00</part>
-	<part name="if_c-pr-a.ic1" crc="55f10458" />
+	<part name="if_c-pr-.ic1" crc="ef0d5098" />
 
     <!-- samples -->
     <part>00 02 00 00</part>
