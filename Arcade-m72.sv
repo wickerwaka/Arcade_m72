@@ -229,9 +229,7 @@ localparam CONF_STR = {
 	"O[6:5],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
 	"O[7],OSD Pause,Off,On;",
 	"O[9:8],Video Timing,Normal,50Hz,57Hz,60Hz;",
-	"O[10],Orientation,Vert,Horz;",
-	"O[11],Rotation,CW,CCW;",
-	"O[12],Flip,Off,On;",
+	"O[10],Orientation,Horz,Vert;",
 	"-;",
 	"DIP;",
 	"-;",
@@ -270,6 +268,9 @@ wire [15:0] joy = joystick_0 | joystick_1;
 wire [21:0] gamma_bus;
 wire        direct_video;
 wire        video_rotated;
+wire        no_rotate = ~status[10];
+wire        flip = 0;
+wire        rotate_ccw = 1;
 
 wire clk_sys = CLK_32M;
 
@@ -596,8 +597,8 @@ video_freak video_freak(
 	.VIDEO_ARY(VIDEO_ARY),
 
 	.VGA_DE_IN(VGA_DE_MIXER),
-	.ARX((!ar) ? 12'd4 : (ar - 1'd1)),
-	.ARY((!ar) ? 12'd3 : 12'd0),
+	.ARX((!ar) ? ( no_rotate ? 12'd4 : 12'd3 ) : (ar - 1'd1)),
+	.ARY((!ar) ? ( no_rotate ? 12'd3 : 12'd4 ) : 12'd0),
 	.CROP_SIZE(0),
 	.CROP_OFF(0),
 	.SCALE(scale)
@@ -613,9 +614,6 @@ pause pause(
 	.OSD_STATUS(OSD_STATUS)
 );
 
-wire rotate_ccw = status[11];
-wire no_rotate = status[10] | direct_video;
-wire flip = status[12];
 screen_rotate screen_rotate(.*);
 
 assign CLK_VIDEO = CLK_32M;

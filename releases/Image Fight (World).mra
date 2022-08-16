@@ -1,0 +1,79 @@
+<misterromdescription>
+  <name>Image Fight (World)</name>
+  <mameversion>0226</mameversion>
+  <setname>imgfight</setname>
+  <year>1988</year>
+  <manufacturer>IREM</manufacturer>
+  <category>Shooter</category>
+  <rbf>m72</rbf>
+
+  <joystick>8-way</joystick>
+  <num_buttons>2</num_buttons>
+  <buttons default="B,A,R,L" names="Attack,Speed Change,Start,Coin,P2 Start,Pause"></buttons>
+  <switches default="00 00">
+    <dip bits="0,1" ids="3,2,4,5" name="Crafts"></dip>
+    <dip bits="2,3" ids="Normal,Hard,Hardest,Debug Mode 2 lap" name="Difficulty" />
+    <dip bits="4,7" ids="1C/1P,2C/1P,3C/1P,4C/1P,5C/1P,6C/1P,1C/2P,1C/3P,1C/4P,1C/5P,1C/6P,2C/3P,4C/2P,5C/3P,8C/3P,Free Play" name="Coin Mode"></dip>
+    <dip bits="8" ids="Off,On" name="Flip Picture"></dip>
+    <dip bits="9" ids="Cocktail,Upright" name="Cabinet type"></dip>
+    <dip bits="11" ids="Off,On" name="Attract Mode Sound"></dip>
+    <dip bits="13" ids="Off,On" name="Freeze Picture"></dip>
+    <dip bits="15" ids="Off,On" name="Service Mode"></dip>
+  </switches>
+  <!-- ROM data -->
+  <rom index="0" zip="imgfight.zip" md5="none">
+    <!-- board type -->
+    <part>01</part>
+
+    <!-- maincpu -->
+    <part>00 08 00 00</part>
+    <interleave output="16">
+        <part name="if-c-h0-a.ic40" crc="if-c-h0-a.ic40" map="10" />
+        <part name="if-c-l0-a.ic37" crc="if-c-l0-a.ic37" map="01" />
+    </interleave>
+    <interleave output="16">
+        <part name="if-c-h0-a.ic40" crc="if-c-h0-a.ic40" map="10" />
+        <part name="if-c-l0-a.ic37" crc="if-c-l0-a.ic37" map="01" />
+    </interleave>
+    <interleave output="16">
+        <part name="if-c-h3.ic43" crc="if-c-h3.ic43" map="10" />
+        <part name="if-c-l3.ic34" crc="if-c-l3.ic34" map="01" />
+    </interleave>
+    
+    <!-- sprites -->
+    <part>00 08 00 00</part>
+    <interleave output="32">
+        <part name="if-c-00.ic53" crc="if-c-00.ic53" map="0001" />
+        <part name="if-c-10.ic51" crc="if-c-10.ic51" map="0010" />
+        <part name="if-c-20.ic49" crc="if-c-20.ic49" map="0100" />
+        <part name="if-c-30.ic47" crc="if-c-30.ic47" map="1000" />
+    </interleave>
+
+    <!-- gfx2 -->
+    <part>00 04 00 00</part>
+    <interleave output="32">
+        <part name="if-a-a0.ic21" crc="if-a-a0.ic21" map="0001" />
+        <part name="if-a-a1.ic22" crc="if-a-a1.ic22" map="0010" />
+        <part name="if-a-a2.ic20" crc="if-a-a2.ic20" map="0100" />
+        <part name="if-a-a3.ic23" crc="if-a-a3.ic23" map="1000" />
+    </interleave>
+
+    <!-- gfx3 -->
+    <part>00 04 00 00</part>
+    <interleave output="32">
+        <part name="if-a-b0.ic26" crc="if-a-b0.ic26" map="0001" />
+        <part name="if-a-b1.ic27" crc="if-a-b1.ic27" map="0010" />
+        <part name="if-a-b2.ic25" crc="if-a-b2.ic25" map="0100" />
+        <part name="if-a-b3.ic24" crc="if-a-b3.ic24" map="1000" />
+    </interleave>
+
+    <!-- mcu -->
+    <part>00 00 10 00</part>
+	<part name="if_c-pr-a.ic1" crc="if_c-pr-a.ic1" />
+
+    <!-- samples -->
+    <part>00 02 00 00</part>
+	<part name="if-c-v0.ic44" crc="if-c-v0.ic44" />
+    <part name="if-c-v1.ic45" crc="if-c-v1.ic45" />
+  </rom>
+</misterromdescription>
