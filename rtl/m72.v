@@ -51,6 +51,12 @@ module m72 (
 	input sdr_cpu_rdy,
 	output [1:0] sdr_cpu_wr_sel,
 
+    input clk_bram,
+    input bram_wr,
+    input [7:0] bram_data,
+    input [19:0] bram_addr,
+    input [1:0] bram_cs,
+
 	input en_layer_a,
 	input en_layer_b,
 	input en_sprites,
@@ -61,7 +67,9 @@ module m72 (
 
 	input video_60hz,
 	input video_57hz,
-	input video_50hz
+	input video_50hz,
+
+	output ddr_debug_data_t ddr_debug_data
 );
 
 // Divide 32Mhz clock by 4 for pixel clock
@@ -71,7 +79,7 @@ reg [9:0] paused_h;
 
 always @(posedge CLK_32M) begin
 	if (pause_rq & ~paused) begin
-		if (~ls245_en & ~DBEN & ~mem_rq_active & ~HINT & ~VBLK & ~irq_rq) begin
+		if (~ls245_en & ~DBEN & ~mem_rq_active) begin
 			paused <= 1;
 			paused_v <= V;
 			paused_h <= H;
@@ -81,22 +89,25 @@ always @(posedge CLK_32M) begin
 	end
 end
 
-reg [3:0] cpu_ce_counter;
-reg ce_cpu, ce_4x_cpu;
+reg [6:0] cpu_ce_counter;
+reg ce_cpu, ce_4x_cpu, ce_cpu_slow;
 always @(posedge CLK_32M) begin
 	if (!reset_n) begin
 		ce_cpu <= 0;
+		ce_cpu_slow <= 0;
 		ce_4x_cpu <= 0;
 		cpu_ce_counter <= 0;
 	end else begin
 		ce_cpu <= 0;
+		ce_cpu_slow <= 0;
 		ce_4x_cpu <= 0;
 
 		if (~paused) begin
 			if (~ls245_en && ~mem_rq_active) begin
-				cpu_ce_counter <= cpu_ce_counter + 4'd1;
+				cpu_ce_counter <= cpu_ce_counter + 7'd1;
 				ce_4x_cpu <= 1;
 				ce_cpu <= cpu_ce_counter[1:0] == 2'b11;
+				ce_cpu_slow <= cpu_ce_counter[1:0] == 7'b11;
 			end
 		end
 	end
@@ -172,6 +183,8 @@ begin
 	end
 end
 
+reg [15:0] cpu_shared_ram_dout_r;
+
 always @(posedge CLK_96M or negedge reset_n)
 begin
 	if (!reset_n) begin
@@ -194,12 +207,15 @@ begin
 			mem_rq_active <= 0;
 		end
 	end
+
+	if (MRD) cpu_shared_ram_dout_r <= cpu_shared_ram_dout;
 end
 
 assign cpu_mem_in = b_d_dout_valid_lat ? word_shuffle(cpu_mem_addr, b_d_dout) :
 					obj_pal_dout_valid_lat ? word_shuffle(cpu_mem_addr, obj_pal_dout) :
 					sound_dout_valid_lat ? word_shuffle(cpu_mem_addr, sound_dout) :
 					sprite_dout_valid_lat ? word_shuffle(cpu_mem_addr, sprite_dout) :
+					cpu_mem_addr[19:16] == 4'hb ? word_shuffle(cpu_mem_addr, cpu_shared_ram_dout_r) :
 					word_shuffle(cpu_mem_addr, cpu_ram_rom_data);
 
 wire ls245_en, rom0_ce, rom1_ce, ram_cs2;
@@ -238,10 +254,10 @@ wire irq_ack;
 
 cpu v30(
 	.clk(CLK_32M),
-	.ce(ce_cpu), // TODO
+	.ce(ce_cpu_slow), // TODO
 	.ce_4x(ce_4x_cpu), // TODO
 	.reset(~reset_n),
-	.turbo(1),
+	.turbo(0),
 	.SLOWTIMING(0),
 
 	.cpu_idle(),
@@ -269,7 +285,9 @@ cpu v30(
 
 	// TODO
 	.cpu_done(),
-	.cpu_export(),
+	.cpu_export_opcode(cpu_export_opcode),
+	.cpu_export_reg_cs(cpu_export_reg_cs),
+	.cpu_export_reg_ip(cpu_export_reg_ip),
 
 	.RegBus_Din(cpu_io_out),
 	.RegBus_Adr(cpu_io_addr),
@@ -279,6 +297,14 @@ cpu v30(
 
 	.sleep_savestate(paused)
 );
+
+wire [15:0] cpu_export_reg_cs;
+wire [15:0] cpu_export_reg_ip;
+wire [7:0] cpu_export_opcode;
+
+assign ddr_debug_data.cpu_cs = cpu_export_reg_cs;
+assign ddr_debug_data.cpu_ip = cpu_export_reg_ip;
+assign ddr_debug_data.cpu_opcode = cpu_export_opcode;
 
 pal_3a pal_3a(
 	.A(cpu_mem_addr),
@@ -330,7 +356,7 @@ pal_3d pal_3d(
 reg old_vblk, old_hint;
 // assign cpu_int_rq = (vblank_trig | hint_trig); TODO
 always @(posedge CLK_32M) begin
-	if (~paused & (irq_ack | ~irq_rq)) begin
+	if (ce_cpu & (irq_ack | ~irq_rq)) begin
 		old_vblk <= VBLK;
 		old_hint <= HINT;
 
@@ -539,5 +565,122 @@ sprite sprite(
 	.sdr_rdy(sdr_sprite_rdy)
 );
 
+
+wire [15:0] cpu_shared_ram_dout;
+wire [11:0] mcu_ram_addr;
+wire [7:0] mcu_ram_din;
+wire [7:0] mcu_ram_dout;
+wire mcu_ram_we;
+wire mcu_ram_int;
+wire mcu_ram_cs;
+
+dualport_mailbox_2kx16 mcu_shared_ram(
+	.reset(~reset_n),
+    .clk_l(CLK_32M),
+    .addr_l(cpu_word_addr[11:1]),
+	.cs_l(1'b1),
+    .din_l(cpu_word_out),
+	.dout_l(cpu_shared_ram_dout),
+    .we_l((cpu_word_addr[19:16] == 4'hb && MWR) ? cpu_word_byte_sel : 2'b00),
+    .int_l(),
+
+    .clk_r(CLK_32M),
+	.cs_r(mcu_ram_cs),
+    .addr_r(mcu_ram_addr[11:0]),
+    .din_r(mcu_ram_dout),
+    .dout_r(mcu_ram_din),
+    .we_r(mcu_ram_we),
+    .int_r(mcu_ram_int)
+);
+
+mcu mcu(
+	.CLK_32M(CLK_32M),
+	.ce_8m(ce_cpu),
+	.reset(~reset_n),
+
+	.ext_ram_addr(mcu_ram_addr),
+	.ext_ram_din(mcu_ram_din),
+	.ext_ram_dout(mcu_ram_dout),
+	.ext_ram_cs(mcu_ram_cs),
+	.ext_ram_we(mcu_ram_we),
+	.ext_ram_int(mcu_ram_int),
+
+	.z80_din(),
+	.z80_latch_en(0),
+
+	.sample_data(),
+
+	.clk_bram(clk_bram),
+	.bram_wr(bram_wr),
+	.bram_data(bram_data),
+	.bram_addr(bram_addr),
+	.bram_prom_cs(bram_cs[0]),
+	.bram_samples_cs(bram_cs[1]),
+
+	.dbg_rom_addr(mcu_dbg_rom_addr)
+);
+
+
+reg [11:0] dbg_cpu_ext_addr;
+reg [15:0] dbg_cpu_ext_data;
+reg [1:0]  dbg_cpu_ext_we;
+
+assign ddr_debug_data.cpu_ext_addr = dbg_cpu_ext_addr;
+assign ddr_debug_data.cpu_ext_data = dbg_cpu_ext_data;
+assign ddr_debug_data.cpu_ext_we = dbg_cpu_ext_we;
+
+// CPU debug
+always @(posedge CLK_32M) begin
+	reg cs;
+	reg [11:0] addr;
+	reg [15:0] data;
+	reg [1:0] we;
+
+	cs <= (cpu_word_addr[19:16] == 4'hb) && ( MWR || MRD );
+	addr <= cpu_word_addr[11:0];
+	data <= cpu_word_out;
+	we <= MWR ? cpu_word_byte_sel : 2'b00;
+
+	if (cs & ~((cpu_word_addr[19:16] == 4'hb) && ( MWR || MRD ))) begin
+		dbg_cpu_ext_addr <= addr;
+		dbg_cpu_ext_we <= we;
+		if (we != 2'b00) dbg_cpu_ext_data <= data;
+		else dbg_cpu_ext_data <= cpu_shared_ram_dout;
+	end
+end
+
+reg [11:0] dbg_mcu_ext_addr;
+reg [7:0] dbg_mcu_ext_data;
+reg dbg_mcu_ext_we;
+
+assign ddr_debug_data.mcu_ext_addr = dbg_mcu_ext_addr;
+assign ddr_debug_data.mcu_ext_data = dbg_mcu_ext_data;
+assign ddr_debug_data.mcu_ext_we = dbg_mcu_ext_we;
+
+// MCU debug
+always @(posedge CLK_32M) begin
+	reg cs;
+	reg [11:0] addr;
+	reg [7:0] data;
+	reg we;
+
+	cs <= mcu_ram_cs;
+	addr <= mcu_ram_addr;
+	data <= mcu_ram_dout;
+	we <= mcu_ram_we;
+
+	if (cs & ~mcu_ram_cs) begin
+		dbg_mcu_ext_addr <= addr;
+		dbg_mcu_ext_we <= we;
+		if (we) dbg_mcu_ext_data <= data;
+		else dbg_mcu_ext_data <= mcu_ram_din;
+	end
+end
+
+
+wire [15:0] mcu_dbg_rom_addr;
+reg [15:0] latched_mcu_dbg_rom_addr;
+assign ddr_debug_data.mcu_rom_addr = latched_mcu_dbg_rom_addr; 
+always @(posedge CLK_32M) if (ce_cpu) latched_mcu_dbg_rom_addr <= mcu_dbg_rom_addr;
 
 endmodule

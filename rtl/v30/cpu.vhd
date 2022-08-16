@@ -2,9 +2,35 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
-use work.pexport.all;
+package whatever is
+   type cpu_export_type is record
+      reg_ax           : unsigned(15 downto 0);
+      reg_cx           : unsigned(15 downto 0);
+      reg_dx           : unsigned(15 downto 0);
+      reg_bx           : unsigned(15 downto 0);
+      reg_sp           : unsigned(15 downto 0);
+      reg_bp           : unsigned(15 downto 0);
+      reg_si           : unsigned(15 downto 0);
+      reg_di           : unsigned(15 downto 0);
+      reg_es           : unsigned(15 downto 0);
+      reg_cs           : unsigned(15 downto 0);
+      reg_ss           : unsigned(15 downto 0);
+      reg_ds           : unsigned(15 downto 0);
+      reg_ip           : unsigned(15 downto 0);
+      reg_f            : unsigned(15 downto 0);
+      opcodebyte_last  : std_logic_vector(7 downto 0);
+   end record;
+end package;
+
+library IEEE;
+use IEEE.std_logic_1164.all;
+use IEEE.numeric_std.all;
+
+-- use work.pexport.all;
 use work.pBus_savestates.all;
 use work.pReg_savestates.all;
+
+use work.whatever.all;
 
 entity cpu is
    port
@@ -38,7 +64,10 @@ entity cpu is
       load_savestate    : in  std_logic;
             
       cpu_done          : out std_logic := '0'; 
-      cpu_export        : out cpu_export_type;
+      cpu_export_opcode : out std_logic_vector(7 downto 0);
+		cpu_export_reg_cs : out unsigned(15 downto 0);
+		cpu_export_reg_ip : out unsigned(15 downto 0);
+		
          
       -- register 
       RegBus_Din        : out std_logic_vector(7 downto 0) := (others => '0');
@@ -3102,21 +3131,9 @@ begin
       remainder => DIVremainder
    );
 
-   cpu_export.reg_ax <= regs.reg_ax;        
-   cpu_export.reg_cx <= regs.reg_cx;        
-   cpu_export.reg_dx <= regs.reg_dx;        
-   cpu_export.reg_bx <= regs.reg_bx;        
-   cpu_export.reg_sp <= regs.reg_sp;        
-   cpu_export.reg_bp <= regs.reg_bp;        
-   cpu_export.reg_si <= regs.reg_si;        
-   cpu_export.reg_di <= regs.reg_di;        
-   cpu_export.reg_es <= regs.reg_es;        
-   cpu_export.reg_cs <= regs.reg_cs;        
-   cpu_export.reg_ss <= regs.reg_ss;        
-   cpu_export.reg_ds <= regs.reg_ds;        
-   cpu_export.reg_ip <= regs.reg_ip;        
-   cpu_export.reg_f  <= reg_f ;        
-   cpu_export.opcodebyte_last  <= opcodebyte;        
+   cpu_export_reg_cs <= regs.reg_cs;        
+   cpu_export_reg_ip <= regs.reg_ip;        
+   cpu_export_opcode  <= opcodebyte;        
 
 end architecture;
 

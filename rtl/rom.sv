@@ -16,6 +16,11 @@ module rom_loader
     output sdr_req,
     input sdr_rdy,
 
+    output [19:0] bram_addr,
+    output [7:0] bram_data,
+    output reg [1:0] bram_cs,
+    output bram_wr,
+
     output board_type_t board_type
 );
 
@@ -30,7 +35,8 @@ enum {
     SIZE_1,
     SIZE_2,
     SIZE_3,
-    DATA
+    SDR_DATA,
+    BRAM_DATA
 } stage = BOARD_TYPE;
 
 reg [3:0] region = 0;
@@ -43,6 +49,8 @@ always @(posedge sys_clk) begin
         sdr_req <= 0;
         ioctl_wait <= 0;
     end
+
+    bram_wr <= 0;
     
     if (ioctl_wr) begin
         case (stage)
@@ -54,15 +62,18 @@ always @(posedge sys_clk) begin
             size[7:0] <= ioctl_data;
             base_addr <= LOAD_REGIONS[region].base_addr;
             reorder_64 <= LOAD_REGIONS[region].reorder_64;
+            bram_cs <= LOAD_REGIONS[region].bram_cs;
             region <= region + 4'd1;
             offset <= 25'd0;
 
             if ({size[31:8], ioctl_data} == 32'd0)
                 stage <= SIZE_0;
+            else if (LOAD_REGIONS[region].bram_cs != 0)
+                stage <= BRAM_DATA;
             else
-                stage <= DATA;
+                stage <= SDR_DATA;
         end
-        DATA: begin
+        SDR_DATA: begin
             if (reorder_64)
                 sdr_addr <= base_addr[24:1] + {offset[24:7], offset[5:2], offset[6], offset[1]};
             else
@@ -73,6 +84,14 @@ always @(posedge sys_clk) begin
             sdr_req <= 1;
             ioctl_wait <= 1;
             write_rq <= ~write_rq; 
+
+            if (offset == ( size - 1)) stage <= SIZE_0;
+        end
+        BRAM_DATA: begin
+            bram_addr <= offset[19:0];
+            bram_data <= ioctl_data;
+            bram_wr <= 1;
+            offset <= offset + 25'd1;
 
             if (offset == ( size - 1)) stage <= SIZE_0;
         end

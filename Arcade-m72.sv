@@ -178,8 +178,6 @@ assign ADC_BUS  = 'Z;
 assign USER_OUT = '1;
 assign {UART_RTS, UART_TXD, UART_DTR} = 0;
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
-assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
-assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;  
 
 assign VGA_F1 = 0;
 assign VGA_SCALER = 0;
@@ -348,6 +346,11 @@ wire sdr_ch3_rdy;
 wire sdr_cpu_rdy = sdr_ch3_rdy;
 wire sdr_rom_rdy = sdr_ch3_rdy;
 
+wire [19:0] bram_addr;
+wire [7:0] bram_data;
+wire [1:0] bram_cs;
+wire bram_wr;
+
 board_type_t board_type;
 
 sdram sdram
@@ -391,6 +394,11 @@ rom_loader rom_loader(
 	.sdr_be(sdr_rom_be),
 	.sdr_req(sdr_rom_req),
 	.sdr_rdy(sdr_rom_rdy),
+
+	.bram_addr(bram_addr),
+	.bram_data(bram_data),
+	.bram_cs(bram_cs),
+	.bram_wr(bram_wr),
 
 	.board_type(board_type)
 );
@@ -519,6 +527,12 @@ m72 m72(
 	.sdr_cpu_rdy(sdr_cpu_rdy),
 	.sdr_cpu_wr_sel(sdr_cpu_wr_sel),
 
+	.clk_bram(clk_sys),
+	.bram_addr(bram_addr),
+	.bram_data(bram_data),
+	.bram_cs(bram_cs),
+	.bram_wr(bram_wr),
+
 	.en_layer_a(en_layer_a),
 	.en_layer_b(en_layer_b),
 	.en_sprites(en_sprites),
@@ -527,11 +541,13 @@ m72 m72(
 
 	.sprite_freeze(status[69]),
 
-	.pause_rq(system_pause),
+	.pause_rq(system_pause | debug_stall),
 
 	.video_50hz(video_50hz),
 	.video_57hz(video_57hz),
-	.video_60hz(video_60hz)
+	.video_60hz(video_60hz),
+
+	.ddr_debug_data(ddr_debug_data)
 );
 
 wire VGA_DE_MIXER;
@@ -593,5 +609,15 @@ pause pause(
 );
 
 assign CLK_VIDEO = CLK_32M;
+
+ddr_debug_data_t ddr_debug_data;
+wire debug_stall;
+ddr_debug ddr_debug(
+	.*,
+	.data(ddr_debug_data),
+	.clk(CLK_96M),
+	.reset(reset | ~pll_locked),
+	.stall(debug_stall)
+);
 
 endmodule

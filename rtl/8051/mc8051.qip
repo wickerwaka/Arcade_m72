@@ -1,4 +1,3 @@
-set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) ../jtframe_8751mcu.v ]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) mc8051_p.vhd ]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) control_fsm_.vhd ]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) control_fsm_rtl.vhd ]
