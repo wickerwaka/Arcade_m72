@@ -11,11 +11,16 @@ module sound (
 	input [7:0] IO_A,
 	input [7:0] IO_DIN,
 
+	output [7:0] snd_io_addr,
+	output [7:0] snd_io_data,
+	output snd_io_req,
+
     input SDBEN,
     input MRD,
     input MWR,
 	input SOUND,
 	input SND,
+	input SND2,
 	input BRQ,
 
 	input pause,
@@ -72,17 +77,22 @@ wire z80_IORQ_n, z80_RD_n, z80_WR_n, z80_MREQ_n, z80_M1_n;
 
 wire [15:0] ram_addr = BRQ ? A[15:0] : z80_addr;
 wire [7:0] ram_data = BRQ ? DIN[7:0] : z80_dout;
-wire [7:0] z80_din = ( ~z80_M1_n & ~z80_IORQ_n ) ? {2'b11, ~snd_latch_ready, SIRQ_N, 4'b1111} :
-                     ( ~z80_RD_n & ~z80_IORQ_n & (z80_addr[2:1] == 2'b01)) ? snd_latch :
+wire [7:0] z80_din = ( ~z80_M1_n & ~z80_IORQ_n ) ? {2'b11, ~snd_latch1_ready, SIRQ_N, 4'b1111} :
+                     ( ~z80_RD_n & ~z80_IORQ_n & (z80_addr[2:1] == 2'b01)) ? snd_latch1 :
+                     ( ~z80_RD_n & ~z80_IORQ_n & (z80_addr[2:1] == 2'b10)) ? snd_latch2 :
                      ( ~z80_RD_n & SCS ) ? SD_OUT :
                      ( ~z80_RD_n ) ? ram_dout : 8'hff;
 wire [7:0] z80_dout;
+
+assign snd_io_addr = z80_addr;
+assign snd_io_req = ~z80_IORQ_n;
+assign snd_io_data = z80_dout;
 
 T80s z80(
 	.RESET_n(~BRQ),
 	.CLK(CLK_32M),
 	.CEN(CE_AUDIO & ~pause),
-	.INT_n(~(~SIRQ_N | snd_latch_ready)),
+	.INT_n(~(~SIRQ_N | snd_latch1_ready)),
 	.BUSRQ_n(~BRQ),
 	.M1_n(z80_M1_n),
 	.MREQ_n(z80_MREQ_n),
@@ -91,7 +101,8 @@ T80s z80(
 	.WR_n(z80_WR_n),
 	.A(z80_addr),
 	.DI(z80_din),
-	.DO(z80_dout)
+	.DO(z80_dout),
+	.NMI_n(~snd_latch2_ready)
 );
 
 jt51 ym2151(
@@ -109,16 +120,25 @@ jt51 ym2151(
 	.xright(AUDIO_R)
 );
 
-reg [7:0] snd_latch;
-reg snd_latch_ready = 0;
+reg [7:0] snd_latch1;
+reg snd_latch1_ready = 0;
+
+reg [7:0] snd_latch2;
+reg snd_latch2_ready = 0;
 
 always @(posedge CLK_32M) begin
 	if (SND & ~IO_A[0]) begin
-		snd_latch <= IO_DIN[7:0];
-		snd_latch_ready <= 1;
+		snd_latch1 <= IO_DIN[7:0];
+		snd_latch1_ready <= 1;
 	end
 
-	if (~z80_IORQ_n & ~z80_WR_n & z80_addr[2:1] == 2'b11) snd_latch_ready <= 0;
+	if (SND2 & ~IO_A[0]) begin
+		snd_latch2 <= IO_DIN[7:0];
+		snd_latch2_ready <= 1;
+	end
+
+	if (~z80_IORQ_n & ~z80_WR_n & z80_addr[2:1] == 2'b11) snd_latch1_ready <= 0;
+	if (~z80_IORQ_n & ~z80_RD_n & (z80_addr[2:1] == 2'b10)) snd_latch2_ready <= 0;
 
 end
 

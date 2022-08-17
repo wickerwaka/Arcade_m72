@@ -889,7 +889,7 @@ begin
 
                         when x"36" => prefixSegmentSS <= '1'; isPrefix := '1'; irqBlocked <= '1'; usePrefix := '1'; cpu_done <= '1'; newBuf := dbuf + 1; cpustage <= CPUSTAGE_IDLE;
       
-                        when x"37" => opcode <= OP_MOVREG; aluop <= ALU_OP_ASCIIADJUST; useAluResult <= '1'; newDelay := 8; opsize <= 1;  cpustage <= CPUSTAGE_EXECUTE; target_decode <= CPU_REG_ax; optarget <= OPTARGET_DECODE; adjustNegate <= '0';
+                        when x"37" => opcode <= OP_MOVREG; aluop <= ALU_OP_ASCIIADJUST; useAluResult <= '1'; newDelay := 8; opsize <= 2;  cpustage <= CPUSTAGE_EXECUTE; target_decode <= CPU_REG_ax; optarget <= OPTARGET_DECODE; adjustNegate <= '0';
       
                         when x"38" => opcode <= OP_NOP; aluop <= ALU_OP_CMP; opsize <= 1;                      source1 <= OPSOURCE_MEM;       source2 <= OPSOURCE_MODRM_REG;    cpustage <= CPUSTAGE_MODRM;        
                         when x"39" => opcode <= OP_NOP; aluop <= ALU_OP_CMP; opsize <= 2;                      source1 <= OPSOURCE_MEM;       source2 <= OPSOURCE_MODRM_REG;    cpustage <= CPUSTAGE_MODRM;        
@@ -900,7 +900,7 @@ begin
 
                         when x"3E" => prefixSegmentDS <= '1'; isPrefix := '1'; irqBlocked <= '1'; usePrefix := '1'; cpu_done <= '1'; newBuf := dbuf + 1; cpustage <= CPUSTAGE_IDLE;
 
-                        when x"3F" => opcode <= OP_MOVREG; aluop <= ALU_OP_ASCIIADJUST; useAluResult <= '1'; newDelay := 8; opsize <= 1;  cpustage <= CPUSTAGE_EXECUTE; target_decode <= CPU_REG_ax; optarget <= OPTARGET_DECODE; adjustNegate <= '1';
+                        when x"3F" => opcode <= OP_MOVREG; aluop <= ALU_OP_ASCIIADJUST; useAluResult <= '1'; newDelay := 8; opsize <= 2;  cpustage <= CPUSTAGE_EXECUTE; target_decode <= CPU_REG_ax; optarget <= OPTARGET_DECODE; adjustNegate <= '1';
 
                         when x"40" => opcode <= OP_MOVREG; cpustage <= CPUSTAGE_EXECUTE; aluop <= ALU_OP_INC; source1 <= OPSOURCE_REG_ax; source2 <= OPSOURCE_IMMIDIATE; immidiate8 <= x"01"; target_decode <= CPU_REG_ax; optarget <= OPTARGET_DECODE; opsize <= 2; useAluResult <= '1'; 
                         when x"41" => opcode <= OP_MOVREG; cpustage <= CPUSTAGE_EXECUTE; aluop <= ALU_OP_INC; source1 <= OPSOURCE_REG_cx; source2 <= OPSOURCE_IMMIDIATE; immidiate8 <= x"01"; target_decode <= CPU_REG_cx; optarget <= OPTARGET_DECODE; opsize <= 2; useAluResult <= '1';

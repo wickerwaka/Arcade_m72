@@ -67,6 +67,8 @@ set_global_assignment -name VERILOG_MACRO "MISTER_FB=1"
 #use only 1MB per frame for scaler to free ~21MB DDR3 RAM
 #set_global_assignment -name VERILOG_MACRO "MISTER_SMALL_VBUF=1"
 
+#set_global_assignment -name VERILOG_MACRO "M72_DEBUG=1"
+
 source sys/sys.tcl
 source sys/sys_analog.tcl
 source files.qip

@@ -48,3 +48,5 @@ verilator/audio.wav
 *.vcd
 
 roms/*
+
+reverse_eng/*

@@ -8,8 +8,8 @@
   <rbf>m72</rbf>
 
   <joystick>8-way</joystick>
-  <num_buttons>2</num_buttons>
-  <buttons default="B,A,X,R,L" names="Switch Weapons,Shoot,Jump,Start,Coin,P2 Start,Pause"></buttons>
+  <num_buttons>3</num_buttons>
+  <buttons default="B,A,X,Y,R,L" names="Switch Weapons,Shoot,Jump,-,Start,Coin,P2 Start,Pause"></buttons>
   <switches default="00 00">
     <dip bits="0,1" ids="3,2,4,5" name="Lives"></dip>
     <dip bits="2,3" ids="Normal,Easy,Hard,Very Hard" name="Difficulty"></dip>
@@ -80,5 +80,7 @@
     <!-- samples -->
     <part>00 01 00 00</part>
 	<part name="nin-v0.7a" crc="a32e8caf" />
+
+  <patch offset="1573632">00 00 00</patch>
   </rom>
 </misterromdescription>

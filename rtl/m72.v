@@ -320,7 +320,7 @@ pal_3a pal_3a(
 	.S()
 );
 
-wire SW, FLAG, DSW, SND, FSET, DMA_ON, ISET, INTCS;
+wire SW, FLAG, DSW, SND, SND2, FSET, DMA_ON, ISET, INTCS;
 
 pal_4d pal_4d(
     .IOWR(IOWR),
@@ -330,6 +330,7 @@ pal_4d pal_4d(
 	.FLAG(FLAG),
 	.DSW(DSW),
 	.SND(SND),
+	.SND2(SND2),
     .FSET(FSET),
     .DMA_ON(DMA_ON),
     .ISET(ISET),
@@ -466,6 +467,10 @@ board_b_d board_b_d(
 wire [15:0] sound_dout;
 wire sound_dout_valid;
 
+wire [7:0] snd_io_addr;
+wire [7:0] snd_io_data;
+wire snd_io_req;
+
 sound sound(
 	.CLK_32M(CLK_32M),
 	.DIN(cpu_mem_out),
@@ -484,9 +489,14 @@ sound sound(
 	.BRQ(BRQ),
     .MRD(MRD),
     .MWR(MWR),
+	.SND2(SND2),
 
 	.AUDIO_L(AUDIO_L),
 	.AUDIO_R(AUDIO_R),
+
+	.snd_io_addr(snd_io_addr),
+	.snd_io_data(snd_io_data),
+	.snd_io_req(snd_io_req),
 
 	.pause(paused)
 );
@@ -606,8 +616,8 @@ mcu mcu(
 	.ext_ram_we(mcu_ram_we),
 	.ext_ram_int(mcu_ram_int),
 
-	.z80_din(),
-	.z80_latch_en(0),
+	.z80_din(snd_io_data),
+	.z80_latch_en(snd_io_req & snd_io_addr == 8'h82),
 
 	.sample_data(),
 

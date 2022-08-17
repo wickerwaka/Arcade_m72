@@ -54,6 +54,7 @@ module pal_4d
 	output logic FLAG,
 	output logic DSW,
 	output logic SND,
+	output logic SND2,
     output logic FSET,
     output logic DMA_ON,
     output logic ISET,
@@ -65,6 +66,7 @@ module pal_4d
         FLAG = IORD & !A[7] & !A[6] & !A[3] & !A[2] & A[1];
         DSW = IORD & !A[7] & !A[6] & !A[3] & A[2] & !A[1];
         SND = IOWR & !A[7] & !A[6] & !A[3] & !A[2] & !A[1];
+        SND2 = IOWR & A[7] & A[6] & !A[3] & !A[2] & !A[1];
         FSET = IOWR & !A[7] & !A[6] & !A[3] & !A[2] & A[1];
         DMA_ON = IOWR & !A[7] & !A[6] & !A[3] & A[2] & !A[1];
         ISET = IOWR & !A[7] & !A[6] & !A[3] & A[2] & A[1];

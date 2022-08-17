@@ -416,6 +416,8 @@ reg btn_left     = 0;
 reg btn_right    = 0;
 reg btn_a        = 0;
 reg btn_b        = 0;
+reg btn_x        = 0;
+reg btn_y        = 0;
 reg btn_coin1    = 0;
 reg btn_coin2    = 0;
 reg btn_1p_start = 0;
@@ -439,8 +441,10 @@ always @(posedge CLK_32M) begin
 			'h72: btn_down    <= pressed; // down
 			'h6B: btn_left    <= pressed; // left
 			'h74: btn_right   <= pressed; // right
-			'h14: btn_a       <= pressed; // ctrl						
-			'h11: btn_b       <= pressed; // alt						
+			'h14: btn_a       <= pressed; // ctrl
+			'h11: btn_b       <= pressed; // alt
+			'h29: btn_x       <= pressed; // space
+			'h12: btn_y       <= pressed; // shift
 		endcase
 	end
 end
@@ -462,8 +466,8 @@ wire m_left1    = btn_left    | joystick_0[1];
 wire m_right1   = btn_right   | joystick_0[0];
 wire m_btna1    = btn_a       | joystick_0[4];
 wire m_btnb1    = btn_b       | joystick_0[5];
-wire m_btnx1    = joystick_0[6];
-wire m_btny1    = joystick_0[7];
+wire m_btnx1    = btn_x       | joystick_0[6];
+wire m_btny1    = btn_y       | joystick_0[7];
 
 //Player 2
 wire m_up2      = btn_up      | joystick_1[3];
@@ -472,15 +476,15 @@ wire m_left2    = btn_left    | joystick_1[1];
 wire m_right2   = btn_right   | joystick_1[0];
 wire m_btna2    = btn_a       | joystick_1[4];
 wire m_btnb2    = btn_b       | joystick_1[5];
-wire m_btnx2    = joystick_1[6];
-wire m_btny2    = joystick_1[7];
+wire m_btnx2    = btn_x       | joystick_1[6];
+wire m_btny2    = btn_y       | joystick_1[7];
 
 //Start/coin
-wire m_start1   = btn_1p_start | joy[6];
-wire m_start2   = btn_2p_start | joy[8];
-wire m_coin1    = btn_coin1    | joy[7];
+wire m_start1   = btn_1p_start | joy[8];
+wire m_start2   = btn_2p_start | joy[10];
+wire m_coin1    = btn_coin1    | joy[9];
 wire m_coin2    = btn_coin2;
-wire m_pause    = btn_pause    | joy[9];
+wire m_pause    = btn_pause    | joy[11];
 
 //////////////////////////////////////////////////////////////////
 
@@ -539,7 +543,11 @@ m72 m72(
 	.bram_cs(bram_cs),
 	.bram_wr(bram_wr),
 
+`ifdef M72_DEBUG
+	.pause_rq(system_pause | debug_stall),
+`else
 	.pause_rq(system_pause),
+`endif
 	.ddr_debug_data(ddr_debug_data),
 	
 	.en_layer_a(en_layer_a),
@@ -552,8 +560,7 @@ m72 m72(
 
 	.video_50hz(video_50hz),
 	.video_57hz(video_57hz),
-	.video_60hz(video_60hz),
-
+	.video_60hz(video_60hz)
 );
 
 wire VGA_DE_MIXER;
@@ -614,7 +621,9 @@ pause pause(
 	.OSD_STATUS(OSD_STATUS)
 );
 
+`ifndef M72_DEBUG // debug uses DDR
 screen_rotate screen_rotate(.*);
+`endif
 
 assign CLK_VIDEO = CLK_32M;
 
