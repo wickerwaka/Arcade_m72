@@ -113,6 +113,7 @@ line_buffer line_buffer(
     .CE_PIX(CE_PIX),
 
     .V0(VE[0]),
+    .NL(NL),
 
     .wr_req(line_buffer_req),
     .wr_ack(line_buffer_ack),
@@ -177,7 +178,7 @@ always_ff @(posedge CLK_96M) begin
         // new line, reset
         obj_ptr <= 0;
         st <= 0;
-        V <= VE + 9'd1;
+        V <= NL ? ( VE - 9'd1 ) : ( VE + 9'd1 );
     end else if (obj_ptr == 10'h80) begin
         // done, wait
         obj_ptr <= obj_ptr;
@@ -240,6 +241,9 @@ module line_buffer(
     input CE_PIX,
     
     input V0,
+     
+     input NL,
+    
 
     input wr_req,
     output reg wr_ack,
@@ -252,6 +256,7 @@ module line_buffer(
 
 reg [1:0] scan_buffer = 0;
 reg [9:0] scan_pos = 0;
+wire [9:0] scan_pos_nl = scan_pos ^ {10{NL}};
 reg [7:0] line_pixel;
 reg [9:0] line_position;
 reg line_write = 0;
@@ -260,7 +265,7 @@ wire [7:0] scan_0, scan_1, scan_2;
 dpramv #(.widthad_a(10)) buffer_0
 (
     .clock_a(CLK_32M),
-    .address_a(scan_pos),
+    .address_a(scan_pos_nl),
     .q_a(scan_0),
     .wren_a(scan_buffer == 1),
     .data_a(8'd0),
@@ -275,7 +280,7 @@ dpramv #(.widthad_a(10)) buffer_0
 dpramv #(.widthad_a(10)) buffer_1
 (
     .clock_a(CLK_32M),
-    .address_a(scan_pos),
+    .address_a(scan_pos_nl),
     .q_a(scan_1),
     .wren_a(scan_buffer == 2),
     .data_a(8'd0),
@@ -290,7 +295,7 @@ dpramv #(.widthad_a(10)) buffer_1
 dpramv #(.widthad_a(10)) buffer_2
 (
     .clock_a(CLK_32M),
-    .address_a(scan_pos),
+    .address_a(scan_pos_nl),
     .q_a(scan_2),
     .wren_a(scan_buffer == 0),
     .data_a(8'd0),

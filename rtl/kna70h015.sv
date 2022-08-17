@@ -36,7 +36,7 @@ assign VE = V ^ {9{NL}};
 assign HE = H ^ {10{NL}};
 assign V = v_count;
 assign H = h_count;
-assign HINT = INT_D && (v_count == h_int_line);
+assign HINT = INT_D && (VE == h_int_line);
 assign HBLK = q_ic75[0];
 assign HS = ~q_ic75[1];
 assign INT_D = q_ic75[2];
@@ -88,64 +88,64 @@ end
 
 
 wire [3:0] ic66[256] = '{
-	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
     4'hF, 4'hF, 4'hF, 4'hF,	4'hF, 4'hF, 4'hF, 4'hF,
     4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
-	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
     4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
-	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
-	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
-	4'hF, 4'hF, 4'hD, 4'hD, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hD, 4'hD, 4'hF, 4'hF, 4'hF, 4'hF,
     4'hF, 4'hF, 4'hF, 4'hF,	4'hF, 4'hF, 4'hF, 4'hF,
     4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
-	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
     
     4'hF, 4'hF, 4'hF, 4'hF,	4'hF, 4'hF, 4'hF, 4'hF,
     4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hE, 4'hE,
-	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
-	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
-	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
-	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE,	4'hE, 4'hE, 4'hE, 4'hE,
     4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
-	4'hE, 4'hE, 4'hF, 4'hF, 4'hF, 4'hF, 4'hD, 4'hD,
+    4'hE, 4'hE, 4'hF, 4'hF, 4'hF, 4'hF, 4'hD, 4'hD,
     4'hD, 4'hF, 4'hF, 4'hF,	4'hF, 4'hF, 4'hF, 4'hF
 };
 
 wire [3:0] ic75[256] = '{
-	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
-	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
-	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'h9, 4'h9, 4'hB, 4'hB,
-	4'hB, 4'hB, 4'hB, 4'hB, 4'hB, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
-	4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
-	4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
-	4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hE, 4'hE, 4'hE, 4'hE,
-	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hF, 4'hF, 4'hF, 4'hF, 4'hD, 4'hD, 4'h9,
-	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
-	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
-	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
-	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
-	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'h9, 4'h9, 4'hB, 4'hB,
-	4'hB, 4'hB, 4'hB, 4'hB, 4'hB, 4'hB, 4'hB, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
-	4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
-	4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
-	4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hE, 4'hE, 4'hE, 4'hE,
-	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
-	4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
-	4'hF, 4'hF, 4'hD, 4'hD, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
-	4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
-	4'hF, 4'hF, 4'hF, 4'hF
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'h9, 4'h9, 4'hB, 4'hB,
+    4'hB, 4'hB, 4'hB, 4'hB, 4'hB, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
+    4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
+    4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
+    4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hF, 4'hF, 4'hF, 4'hF, 4'hD, 4'hD, 4'h9,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'h9, 4'h9, 4'hB, 4'hB,
+    4'hB, 4'hB, 4'hB, 4'hB, 4'hB, 4'hB, 4'hB, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
+    4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
+    4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA,
+    4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hA, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE,
+    4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hE, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hD, 4'hD, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF, 4'hF,
+    4'hF, 4'hF, 4'hF, 4'hF
 };
 
 

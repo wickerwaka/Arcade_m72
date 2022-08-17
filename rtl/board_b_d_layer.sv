@@ -10,7 +10,7 @@ module board_b_d_layer(
     input WR,
 
     input [7:0] IO_A,
-	input [7:0] IO_DIN,
+    input [7:0] IO_DIN,
 
     input VSCK,
     input HSCK,
@@ -25,9 +25,9 @@ module board_b_d_layer(
     output CP8,
 
     input [31:0] sdr_data,
-	output [19:0] sdr_addr,
-	output sdr_req,
-	input sdr_rdy,
+    output [19:0] sdr_addr,
+    output sdr_req,
+    input sdr_rdy,
 
     input enabled,
     input paused
@@ -39,32 +39,32 @@ wire [7:0] dout_h, dout_l;
 
 dpramv #(.widthad_a(13)) ram_l
 (
-	.clock_a(CLK_32M),
-	.address_a(A[13:1]),
-	.q_a(dout_l),
-	.wren_a(WR & BYTE_SEL[0]),
-	.data_a(DIN[7:0]),
+    .clock_a(CLK_32M),
+    .address_a(A[13:1]),
+    .q_a(dout_l),
+    .wren_a(WR & BYTE_SEL[0]),
+    .data_a(DIN[7:0]),
 
-	.clock_b(CLK_32M),
-	.address_b({SV[8:3], SH[8:2]}),
-	.data_b(),
-	.wren_b(1'd0),
-	.q_b(ram_l_dout)
+    .clock_b(CLK_32M),
+    .address_b({SV[8:3], SH[8:2]}),
+    .data_b(),
+    .wren_b(1'd0),
+    .q_b(ram_l_dout)
 );
 
 dpramv #(.widthad_a(13)) ram_h
 (
-	.clock_a(CLK_32M),
-	.address_a(A[13:1]),
-	.q_a(dout_h),
-	.wren_a(WR & BYTE_SEL[1]),
-	.data_a(DIN[15:8]),
+    .clock_a(CLK_32M),
+    .address_a(A[13:1]),
+    .q_a(dout_h),
+    .wren_a(WR & BYTE_SEL[1]),
+    .data_a(DIN[15:8]),
 
-	.clock_b(CLK_32M),
-	.address_b({SV[8:3], SH[8:2]}),
-	.data_b(),
-	.wren_b(1'd0),
-	.q_b(ram_h_dout)
+    .clock_b(CLK_32M),
+    .address_b({SV[8:3], SH[8:2]}),
+    .data_b(),
+    .wren_b(1'd0),
+    .q_b(ram_h_dout)
 );
 
 reg [31:0] rom_data;
@@ -89,7 +89,7 @@ kna6034201 kna6034201(
 );
 
 wire [8:0] SV = VE + adj_v;
-wire [8:0] SH = HE + adj_h;
+wire [8:0] SH = ( HE + adj_h ) ^ { 6'b0, {3{NL}} };
 
 reg [8:0] adj_v;
 reg [8:0] adj_h;
