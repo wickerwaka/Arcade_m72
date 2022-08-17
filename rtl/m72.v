@@ -212,20 +212,11 @@ begin
 	end
 end
 
-assign cpu_mem_in = b_d_dout_valid_lat ? word_shuffle(cpu_mem_addr, b_d_dout) :
-					obj_pal_dout_valid_lat ? word_shuffle(cpu_mem_addr, obj_pal_dout) :
-					sound_dout_valid_lat ? word_shuffle(cpu_mem_addr, sound_dout) :
-					sprite_dout_valid_lat ? word_shuffle(cpu_mem_addr, sprite_dout) :
-					cpu_mem_addr[19:16] == 4'hb ? word_shuffle(cpu_mem_addr, cpu_shared_ram_dout_r) :
-					word_shuffle(cpu_mem_addr, cpu_ram_rom_data);
-
 wire ls245_en, rom0_ce, rom1_ce, ram_cs2;
 
 
 wire [15:0] switches = { p2_buttons, p2_joystick, p1_buttons, p1_joystick };
 wire [15:0] flags = { 8'hff, TNSL, 1'b1, 1'b1 /*TEST*/, 1'b1 /*R*/, coin, start_buttons };
-wire IO_L = ~cpu_io_addr[0];
-wire IO_H =  cpu_io_addr[0];
 
 reg [7:0] sys_flags = 0;
 wire COIN0 = sys_flags[0];
@@ -238,16 +229,29 @@ wire NL = SOFT_NL ^ dip_sw[8];
 
 // TODO BANK, CBLK, NL
 always @(posedge CLK_32M) begin
-	if (FSET & IO_L) sys_flags <= cpu_io_out[7:0];
+	if (FSET & ~cpu_io_addr[0]) sys_flags <= cpu_io_out[7:0];
 end
 
-assign cpu_io_in =  (SW & IO_L) ? switches[7:0] :
-                    (SW & IO_H) ? switches[15:8] :
-                    (FLAG & IO_L) ? flags[7:0] :
-                    (FLAG & IO_H) ? flags[15:8] :
-                    (DSW & IO_L) ? dip_sw[7:0] :
-                    (DSW & IO_H) ? dip_sw[15:8] :
-					8'hff;
+// mux io and memory reads
+always_comb begin
+	bit [15:0] d16;
+	bit [15:0] io16;
+
+	if (b_d_dout_valid_lat) d16 = b_d_dout;
+	else if (obj_pal_dout_valid_lat) d16 = obj_pal_dout;
+	else if (sound_dout_valid_lat) d16 = sound_dout;
+	else if (sprite_dout_valid_lat) d16 = sprite_dout;
+	else if (cpu_mem_addr[19:16] == 4'hb) d16 = cpu_shared_ram_dout_r;
+	else d16 = cpu_ram_rom_data;
+	cpu_mem_in = word_shuffle(cpu_mem_addr, d16);
+
+	if (SW) io16 = switches;
+	else if (FLAG) io16 = flags;
+	else if (DSW) io16 = dip_sw;
+	else io16 = 16'hffff;
+
+	cpu_io_in = cpu_io_addr[0] ? io16[15:8] : io16[7:0];
+end
 
 reg irq_rq = 0;
 reg [8:0] irq_addr;
