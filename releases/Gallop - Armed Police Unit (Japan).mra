@@ -1,7 +1,8 @@
 <misterromdescription>
   <name>Gallop - Armed Police Unit (Japan)</name>
   <mameversion>0226</mameversion>
-  <setname>cosmccop</setname>
+  <setname>gallop</setname>
+  <parent>cosmccop</parent>
   <year>1991</year>
   <manufacturer>IREM</manufacturer>
   <category>Shooter</category>
@@ -19,7 +20,7 @@
     <dip bits="9,10" ids="Upright,Upright (2P),Cocktail" name="Cabinet type"></dip>
   </switches>
   <!-- ROM data -->
-  <rom index="0" zip="cosmccop.zip" md5="none">
+  <rom index="0" zip="cosmccop.zip|gallop.zip" md5="none" type="merged|nonmerged">
     <part>01</part>
 
 	<!-- maincpu -->
