@@ -33,8 +33,16 @@ wire [6:0] ram_addr;
 wire [7:0] ram_din, ram_dout;
 wire ram_we, ram_cs;
 
+wire [7:0] sample_port;
+reg valid_samples = 0;
+reg valid_rom = 0;
+always @(posedge clk_bram) if (bram_samples_cs & bram_wr) valid_samples <= 1;
+always @(posedge clk_bram) if (bram_prom_cs & bram_wr) valid_rom <= 1;
+
 reg [2:0] delayed_ce_count = 0;
 wire delayed_ce = ce_8m & ~|delayed_ce_count;
+
+assign sample_data = valid_samples ? sample_port : 8'h80;
 
 dpramv_cen #(.widthad_a(7)) internal_ram
 (
@@ -60,7 +68,7 @@ dpramv_cen #(.widthad_a(13)) prom
     .q_a(prom_data),
     .wren_a(1'b0),
     .data_a(),
-   .cen_a(delayed_ce),
+    .cen_a(delayed_ce),
 
     .clock_b(clk_bram),
     .address_b(bram_addr[12:0]),
@@ -154,7 +162,7 @@ wire [7:0] prom_data;
 mc8051_core mc8051(
     .clk(CLK_32M),
     .cen(delayed_ce),
-    .reset(reset),
+    .reset(reset | ~valid_rom),
 
     // prom
     .rom_data_i(prom_data),
@@ -172,7 +180,7 @@ mc8051_core mc8051(
     .int1_i(~z80_latch_int),
 
     // sample dac
-    .p1_o(sample_data),
+    .p1_o(sample_port),
 
     // external ram
     .datax_i(ext_din),
