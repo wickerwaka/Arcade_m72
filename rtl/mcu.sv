@@ -33,38 +33,41 @@ wire [6:0] ram_addr;
 wire [7:0] ram_din, ram_dout;
 wire ram_we, ram_cs;
 
+reg [2:0] delayed_ce_count = 0;
+wire delayed_ce = ce_8m & ~|delayed_ce_count;
+
 dpramv_cen #(.widthad_a(7)) internal_ram
 (
-	.clock_a(CLK_32M),
-	.address_a(ram_addr),
-	.q_a(ram_din),
-	.wren_a(ram_we),
-	.data_a(ram_dout),
-    .cen_a(ce_8m),
+    .clock_a(CLK_32M),
+    .address_a(ram_addr),
+    .q_a(ram_din),
+    .wren_a(ram_we),
+    .data_a(ram_dout),
+    .cen_a(delayed_ce),
 
-	.clock_b(CLK_32M),
-	.address_b(0),
-	.data_b(),
-	.wren_b(1'd0),
-	.q_b(),
-   .cen_b(1'b0)
+    .clock_b(CLK_32M),
+    .address_b(0),
+    .data_b(),
+    .wren_b(1'd0),
+    .q_b(),
+    .cen_b(1'b0)
 );
 
 dpramv_cen #(.widthad_a(13)) prom
 (
-	.clock_a(CLK_32M),
-	.address_a(prom_addr[12:0]),
-	.q_a(prom_data),
-	.wren_a(1'b0),
-	.data_a(),
-   .cen_a(ce_8m),
+    .clock_a(CLK_32M),
+    .address_a(prom_addr[12:0]),
+    .q_a(prom_data),
+    .wren_a(1'b0),
+    .data_a(),
+   .cen_a(delayed_ce),
 
-	.clock_b(clk_bram),
-	.address_b(bram_addr[12:0]),
-	.data_b(bram_data),
-	.wren_b(bram_prom_cs),
-	.q_b(),
-   .cen_b(1'b1)
+    .clock_b(clk_bram),
+    .address_b(bram_addr[12:0]),
+    .data_b(bram_data),
+    .wren_b(bram_prom_cs),
+    .q_b(),
+    .cen_b(1'b1)
 );
 
 
@@ -72,17 +75,17 @@ dpramv_cen #(.widthad_a(13)) prom
 /// SAMPLE ROM
 dpramv #(.widthad_a(18)) sample_rom
 (
-	.clock_a(CLK_32M),
-	.address_a(sample_addr),
-	.q_a(sample_data_dout),
-	.wren_a(1'b0),
-	.data_a(),
+    .clock_a(CLK_32M),
+    .address_a(sample_addr),
+    .q_a(sample_data_dout),
+    .wren_a(1'b0),
+    .data_a(),
 
-	.clock_b(clk_bram),
-	.address_b(bram_addr[17:0]),
-	.data_b(bram_data),
-	.wren_b(bram_samples_cs),
-	.q_b()
+    .clock_b(clk_bram),
+    .address_b(bram_addr[17:0]),
+    .data_b(bram_data),
+    .wren_b(bram_samples_cs),
+    .q_b()
 );
 
 wire [7:0] sample_data_dout;
@@ -103,8 +106,10 @@ always @(posedge CLK_32M) begin
         z80_latch <= z80_din;
         z80_latch_int <= 1;
     end
+     
+     if (ce_8m & |delayed_ce_count) delayed_ce_count <= delayed_ce_count - 3'd1;
 
-    if (ce_8m) begin
+    if (delayed_ce) begin
         dbg_rom_addr <= prom_addr;
         
         ext_ram_cs <= 0;
@@ -129,12 +134,13 @@ always @(posedge CLK_32M) begin
             end
 
             16'hcxxx: begin
+                if (ext_we) delayed_ce_count <= 7;
                 ext_ram_addr <= ext_addr[11:0];
                 ext_ram_dout <= ext_dout;
                 ext_ram_cs <= ext_cs;
                 ext_ram_we <= ext_cs & ext_we;
                 if (~ext_we) ext_src <= RAM;
-				end
+                end
             endcase
         end
     end
@@ -147,7 +153,7 @@ wire [7:0] prom_data;
 
 mc8051_core mc8051(
     .clk(CLK_32M),
-    .cen(ce_8m),
+    .cen(delayed_ce),
     .reset(reset),
 
     // prom

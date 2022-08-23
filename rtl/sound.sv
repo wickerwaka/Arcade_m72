@@ -25,8 +25,8 @@ module sound (
 
 	input pause,
 
-	output [15:0] AUDIO_L,
-	output [15:0] AUDIO_R
+	output [15:0] ym_audio_l,
+	output [15:0] ym_audio_r
 );
 
 
@@ -116,8 +116,8 @@ jt51 ym2151(
 	.din(SD_IN),
 	.dout(SD_OUT),
 	.irq_n(SIRQ_N),
-	.xleft(AUDIO_L),
-	.xright(AUDIO_R)
+	.xleft(ym_audio_l),
+	.xright(ym_audio_r)
 );
 
 reg [7:0] snd_latch1;

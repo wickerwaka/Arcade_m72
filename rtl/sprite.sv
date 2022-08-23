@@ -158,7 +158,7 @@ reg [8:0] width_px, height_px;
 reg [3:0] width, height;
 reg [8:0] rel_y;
 
-wire [8:0] row_y = obj_flipy ? (height_px - rel_y) : rel_y;
+wire [8:0] row_y = obj_flipy ? (height_px - rel_y - 1) : rel_y;
 
 always_ff @(posedge CLK_96M) begin
     reg old_v0 = 0;

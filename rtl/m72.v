@@ -89,26 +89,28 @@ always @(posedge CLK_32M) begin
 	end
 end
 
-reg [6:0] cpu_ce_counter;
-reg ce_cpu, ce_4x_cpu, ce_cpu_slow;
+reg [1:0] ce_counter_cpu, ce_counter_mcu;
+reg ce_cpu, ce_4x_cpu, ce_mcu;
+
 always @(posedge CLK_32M) begin
 	if (!reset_n) begin
 		ce_cpu <= 0;
-		ce_cpu_slow <= 0;
 		ce_4x_cpu <= 0;
-		cpu_ce_counter <= 0;
+		ce_counter_cpu <= 0;
+		ce_counter_mcu <= 0;
 	end else begin
 		ce_cpu <= 0;
-		ce_cpu_slow <= 0;
 		ce_4x_cpu <= 0;
+		ce_mcu <= 0;
 
 		if (~paused) begin
-			if (~ls245_en && ~mem_rq_active) begin
-				cpu_ce_counter <= cpu_ce_counter + 7'd1;
+			if (~ls245_en && ~mem_rq_active) begin // stall main cpu while fetching from sdram
+				ce_counter_cpu <= ce_counter_cpu + 2'd1;
 				ce_4x_cpu <= 1;
-				ce_cpu <= cpu_ce_counter[1:0] == 2'b11;
-				ce_cpu_slow <= cpu_ce_counter[2:0] == 3'b011;
+				ce_cpu <= &ce_counter_cpu;
 			end
+			ce_counter_mcu <= ce_counter_mcu + 2'd1;
+			ce_mcu <= &ce_counter_mcu;
 		end
 	end
 end
@@ -475,6 +477,8 @@ wire [7:0] snd_io_addr;
 wire [7:0] snd_io_data;
 wire snd_io_req;
 
+wire [15:0] ym_audio_l, ym_audio_r;
+
 sound sound(
 	.CLK_32M(CLK_32M),
 	.DIN(cpu_mem_out),
@@ -495,8 +499,8 @@ sound sound(
     .MWR(MWR),
 	.SND2(SND2),
 
-	.AUDIO_L(AUDIO_L),
-	.AUDIO_R(AUDIO_R),
+	.ym_audio_l(ym_audio_l),
+	.ym_audio_r(ym_audio_r),
 
 	.snd_io_addr(snd_io_addr),
 	.snd_io_data(snd_io_data),
@@ -588,6 +592,7 @@ wire [7:0] mcu_ram_dout;
 wire mcu_ram_we;
 wire mcu_ram_int;
 wire mcu_ram_cs;
+wire [7:0] mcu_sample_data;
 
 dualport_mailbox_2kx16 mcu_shared_ram(
 	.reset(~reset_n),
@@ -608,9 +613,10 @@ dualport_mailbox_2kx16 mcu_shared_ram(
     .int_r(mcu_ram_int)
 );
 
+
 mcu mcu(
 	.CLK_32M(CLK_32M),
-	.ce_8m(ce_cpu_slow),
+	.ce_8m(ce_mcu),
 	.reset(~reset_n),
 
 	.ext_ram_addr(mcu_ram_addr),
@@ -623,7 +629,7 @@ mcu mcu(
 	.z80_din(snd_io_data),
 	.z80_latch_en(snd_io_req & snd_io_addr == 8'h82),
 
-	.sample_data(),
+	.sample_data(mcu_sample_data),
 
 	.clk_bram(clk_bram),
 	.bram_wr(bram_wr),
@@ -635,6 +641,22 @@ mcu mcu(
 	.dbg_rom_addr(mcu_dbg_rom_addr)
 );
 
+
+reg [16:0] audio_l, audio_r;
+
+assign AUDIO_L = audio_l[16:1];
+assign AUDIO_R = audio_r[16:1];
+
+always @(posedge CLK_32M) begin
+	bit [7:0] signed_sample;
+	bit [16:0] ext_sample;
+
+	signed_sample = mcu_sample_data - 8'h80; // convert unsigned to signed
+	ext_sample = { signed_sample[7], signed_sample[7:0], signed_sample[7:0] }; // extend to 17-bits
+
+	audio_l <= {ym_audio_l[15], ym_audio_l} + ext_sample;
+	audio_r <= {ym_audio_r[15], ym_audio_r} + ext_sample;
+end
 
 reg [11:0] dbg_cpu_ext_addr;
 reg [15:0] dbg_cpu_ext_data;
