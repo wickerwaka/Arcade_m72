@@ -381,8 +381,8 @@ architecture arch of cpu is
    signal Reg_f            : unsigned(15 downto 0);  
    
    -- prefetch
-   signal prefetchCount    : integer range 0 to 5;
-   signal prefetchBuffer   : std_logic_vector(47 downto 0);
+   signal prefetchCount    : integer range 0 to 15;
+   signal prefetchBuffer   : std_logic_vector(127 downto 0);
    signal prefetchAddr     : unsigned(19 downto 0);
    signal prefetchAddrOld  : unsigned(19 downto 0);
    signal prefetch1byte    : std_logic;
@@ -497,8 +497,8 @@ begin
    SS_CPU_BACK4(31 downto 16) <= std_logic_vector(Reg_f);      
    
    process (clk)
-      variable varPrefetchCount  : integer range 0 to 5;
-      variable varprefetchBuffer : std_logic_vector(47 downto 0);
+      variable varPrefetchCount  : integer range 0 to 15;
+      variable varprefetchBuffer : std_logic_vector(127 downto 0);
       variable isPrefix          : std_logic;
       variable usePrefix         : std_logic;
       variable source1Val        : unsigned(15 downto 0);
@@ -3049,7 +3049,7 @@ begin
             case (prefetchState) is
             
                when PREFETCH_IDLE =>
-                  if (ce = '1' and prefetchCount < 4 and dma_active = '0' and sdma_request = '0') then
+                  if (ce = '1' and prefetchCount < 14 and dma_active = '0' and sdma_request = '0') then
                      prefetchState   <= PREFETCH_READ;
                      prefetchDisturb <= '0';
                   end if;
@@ -3090,13 +3090,13 @@ begin
             end case;
             
             if (consumePrefetch = 1) then
-               varprefetchBuffer := x"00" & varprefetchBuffer(47 downto 8);
+               varprefetchBuffer := x"00" & varprefetchBuffer(127 downto 8);
                varPrefetchCount  := varPrefetchCount - 1;
             elsif (consumePrefetch = 2) then
-               varprefetchBuffer := x"0000" & varprefetchBuffer(47 downto 16);
+               varprefetchBuffer := x"0000" & varprefetchBuffer(127 downto 16);
                varPrefetchCount  := varPrefetchCount - 2;
             elsif (consumePrefetch = 3) then
-               varprefetchBuffer := x"000000" & varprefetchBuffer(47 downto 24);
+               varprefetchBuffer := x"000000" & varprefetchBuffer(127 downto 24);
                varPrefetchCount  := varPrefetchCount - 3;
             end if;
             
