@@ -20,6 +20,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/pause.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/mcu.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/dualport_mailbox.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ddr_debug.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/m72_pic.sv
 
 set_global_assignment -name VHDL_FILE rtl/v30/export.vhd
 set_global_assignment -name VHDL_FILE rtl/v30/bus_savestates.vhd

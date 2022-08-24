@@ -131,7 +131,7 @@ always @(posedge CLK_32M) begin
     do_rom <= 0;
 
     if (do_rom) begin
-        sdr_addr <= {COD[12:0], RV[2:0]};
+        sdr_addr <= {COD[13:0], RV[2:0]};
         sdr_req <= 1;
     end else if (sdr_rdy) begin
         rom_data <= sdr_data;

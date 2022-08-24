@@ -250,10 +250,6 @@ always_comb begin
 	cpu_io_in = cpu_io_addr[0] ? io16[15:8] : io16[7:0];
 end
 
-reg irq_rq = 0;
-reg [8:0] irq_addr;
-wire irq_ack;
-
 cpu v30(
 	.clk(CLK_32M),
 	.ce(ce_cpu), // TODO
@@ -278,10 +274,9 @@ cpu v30(
 	.bus_datawrite(cpu_mem_out),
 	.bus_dataread(cpu_mem_in),
 
-	// TODO
-	.irqrequest_in(irq_rq),
-	.irqvector_in(irq_addr),
-	.irqrequest_ack(irq_ack),
+	.irqrequest_in(int_req),
+	.irqvector_in(int_vector),
+	.irqrequest_ack(int_ack),
 
 	.load_savestate(0),
 
@@ -356,24 +351,27 @@ pal_3d pal_3d(
     .SDBEN(SDBEN)
 );
 
-reg old_vblk, old_hint;
-// assign cpu_int_rq = (vblank_trig | hint_trig); TODO
-always @(posedge CLK_32M) begin
-	if (ce_cpu & (irq_ack | ~irq_rq)) begin
-		old_vblk <= VBLK;
-		old_hint <= HINT;
+wire int_req, int_ack;
+wire [8:0] int_vector;
 
-		irq_rq <= 0;
+m72_pic m72_pic(
+	.clk(CLK_32M),
+	.ce(ce_cpu),
+	.reset(~reset_n),
 
-		if (VBLK & ~old_vblk) begin
-			irq_rq <= 1;
-			irq_addr <= 9'h80;
-		end else if(HINT & ~old_hint) begin
-			irq_rq <= 1;
-			irq_addr <= 9'h88;
-		end
-	end
-end
+	.cs(INTCS),
+	.wr(IOWR),
+	.rd(0),
+	.a0(cpu_io_addr[1]),
+	
+	.din(cpu_io_out),
+
+	.int_req(int_req),
+	.int_vector(int_vector),
+	.int_ack(int_ack),
+
+	.intp({5'd0, HINT, 1'b0, VBLK})
+);
 
 wire [8:0] VE, V;
 wire [9:0] HE, H;
