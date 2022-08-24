@@ -19,15 +19,15 @@ module ddr_debug(
 
     // ddr interface
     output        DDRAM_CLK,
-	input         DDRAM_BUSY,
-	output  [7:0] DDRAM_BURSTCNT,
-	output [28:0] DDRAM_ADDR,
-	input  [63:0] DDRAM_DOUT,
-	input         DDRAM_DOUT_READY,
-	output        DDRAM_RD,
-	output [63:0] DDRAM_DIN,
-	output  [7:0] DDRAM_BE,
-	output        DDRAM_WE,
+    input         DDRAM_BUSY,
+    output  [7:0] DDRAM_BURSTCNT,
+    output [28:0] DDRAM_ADDR,
+    input  [63:0] DDRAM_DOUT,
+    input         DDRAM_DOUT_READY,
+    output        DDRAM_RD,
+    output [63:0] DDRAM_DIN,
+    output  [7:0] DDRAM_BE,
+    output        DDRAM_WE,
 
     output reg    stall,
 

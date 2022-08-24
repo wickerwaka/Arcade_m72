@@ -5,7 +5,7 @@ import m72_pkg::*;
 
 module pal_3a
 (
-	input logic [19:0] A,
+    input logic [19:0] A,
     
     input board_type_t board_type,
 
@@ -13,7 +13,7 @@ module pal_3a
     input logic DBEN,
     input logic M_IO,
     input logic [12:0] COD,
-	output logic ls245_en, // TODO this signal might be better named
+    output logic ls245_en, // TODO this signal might be better named
     output [24:1] sdr_addr,
     output writable,
     output logic S
@@ -56,20 +56,20 @@ module pal_4d
 (
     input logic IOWR,
     input logic IORD,
-	input logic [7:0] A,
+    input logic [7:0] A,
 
-	output logic SW,
-	output logic FLAG,
-	output logic DSW,
-	output logic SND,
-	output logic SND2,
+    output logic SW,
+    output logic FLAG,
+    output logic DSW,
+    output logic SND,
+    output logic SND2,
     output logic FSET,
     output logic DMA_ON,
     output logic ISET,
     output logic INTCS
 );
 
-	always_comb begin
+    always_comb begin
         SW = IORD & !A[7] & !A[6] & !A[3] & !A[2] & !A[1];
         FLAG = IORD & !A[7] & !A[6] & !A[3] & !A[2] & A[1];
         DSW = IORD & !A[7] & !A[6] & !A[3] & A[2] & !A[1];
@@ -79,28 +79,28 @@ module pal_4d
         DMA_ON = IOWR & !A[7] & !A[6] & !A[3] & A[2] & !A[1];
         ISET = IOWR & !A[7] & !A[6] & !A[3] & A[2] & A[1];
         INTCS = (IOWR | IORD) & !A[7] & A[6];
-	end
+    end
 
 endmodule
 
 module pal_3d
 (
-	input logic [19:0] A,
+    input logic [19:0] A,
     input logic M_IO,
     input logic DBEN,
     input logic TNSL,
     input logic BRQ,
 
-	output logic BUFDBEN,
-	output logic BUFCS,
-	output logic OBJ_P,
-	output logic CHARA_P,
+    output logic BUFDBEN,
+    output logic BUFCS,
+    output logic OBJ_P,
+    output logic CHARA_P,
     output logic CHARA,
     output logic SOUND,
     output logic SDBEN
 );
 
-	always_comb begin
+    always_comb begin
         BUFDBEN = A[19] & A[18] & !A[17] & !A[16] & !A[15] & !A[14] & M_IO & !DBEN & TNSL;
 
         BUFCS = TNSL & (!A[19] | !A[18] | A[17] | A[16] | A[15] | A[14] | !M_IO); // TODO unused, neg M_IO is not safe here

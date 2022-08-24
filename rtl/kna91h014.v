@@ -1,28 +1,28 @@
 module kna91h014 (
-	input CLK_32M,
+    input CLK_32M,
 
-	input [7:0] CB,	// Pins 3-10.
-	input [7:0] CA,	// Pins 11-18.
-	
-	input SELECT,	// Pin 50. "S"
-	
-	input E1_N,		// Pin 52.
-	input E2_N,		// Pin 51. CBLK.
+    input [7:0] CB,	// Pins 3-10.
+    input [7:0] CA,	// Pins 11-18.
+    
+    input SELECT,	// Pin 50. "S"
+    
+    input E1_N,		// Pin 52.
+    input E2_N,		// Pin 51. CBLK.
 
-	input G,		// Pin 30. G_N.
-	
-	input MWR,	// Pin 29.
-	input MRD,	// Pin 28.
+    input G,		// Pin 30. G_N.
+    
+    input MWR,	// Pin 29.
+    input MRD,	// Pin 28.
 
-	input [15:0] DIN,	// Pins 25, 22-19 (split to input for Verilog).
-	output [15:0] DOUT,	// Pins 25, 22-19 (split to output for Verilog).
-	output DOUT_VALID,
-	
-	input [19:0] A,	// Pins 53-60
+    input [15:0] DIN,	// Pins 25, 22-19 (split to input for Verilog).
+    output [15:0] DOUT,	// Pins 25, 22-19 (split to output for Verilog).
+    output DOUT_VALID,
+    
+    input [19:0] A,	// Pins 53-60
 
-	output reg [4:0] RED,	// Pins 47-43.
-	output reg [4:0] GRN,	// Pins 42-40, 37-36.
-	output reg [4:0] BLU	// Pins 35-31.
+    output reg [4:0] RED,	// Pins 47-43.
+    output reg [4:0] GRN,	// Pins 42-40, 37-36.
+    output reg [4:0] BLU	// Pins 35-31.
 );
 
 wire [7:0] A_IN = A[8:1];
@@ -31,7 +31,7 @@ wire [2:0] A_S = { A[11], A[10], A[0] };
 reg [7:0] color_addr;
 
 always @(posedge CLK_32M) begin
-	color_addr <= SELECT ? CA : CB;
+    color_addr <= SELECT ? CA : CB;
 end
 
 // Palette RAMs...
@@ -58,37 +58,37 @@ reg [4:0] blu_lat;
 
 always @(posedge CLK_32M)
 begin
-	if (ram_wr_a)
-		ram_a[A_IN] <= DIN[4:0];
-	else
-		red_lat <= ram_a[A_IN];
+    if (ram_wr_a)
+        ram_a[A_IN] <= DIN[4:0];
+    else
+        red_lat <= ram_a[A_IN];
 
-	if (ram_wr_b)
-		ram_b[A_IN] <= DIN[4:0];
-	else
-		grn_lat <= ram_b[A_IN];
+    if (ram_wr_b)
+        ram_b[A_IN] <= DIN[4:0];
+    else
+        grn_lat <= ram_b[A_IN];
 
-	if (ram_wr_c)
-		ram_c[A_IN] <= DIN[4:0];
-	else
-		blu_lat <= ram_c[A_IN];
+    if (ram_wr_c)
+        ram_c[A_IN] <= DIN[4:0];
+    else
+        blu_lat <= ram_c[A_IN];
 end
 
 // DOUT read driver...
 assign DOUT = { 11'd0,
-	(ram_a_cs) ? red_lat :
-	(ram_b_cs) ? grn_lat :
-	(ram_c_cs) ? blu_lat : 5'h00 };
+    (ram_a_cs) ? red_lat :
+    (ram_b_cs) ? grn_lat :
+    (ram_c_cs) ? blu_lat : 5'h00 };
 assign DOUT_VALID = rd_ena;
 
 // Latch RAM outputs...
 
 always @(posedge CLK_32M) begin
-	if (~G) begin
-		RED <= ram_a[color_addr];
-		GRN <= ram_b[color_addr];
-		BLU <= ram_c[color_addr];
-	end
+    if (~G) begin
+        RED <= ram_a[color_addr];
+        GRN <= ram_b[color_addr];
+        BLU <= ram_c[color_addr];
+    end
 end
 
 endmodule

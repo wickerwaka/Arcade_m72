@@ -10,8 +10,8 @@ module board_b_d (
     input [19:0] A,
     input [1:0]  BYTE_SEL,
 
-	input [7:0] IO_A,
-	input [7:0] IO_DIN,
+    input [7:0] IO_A,
+    input [7:0] IO_DIN,
 
     input MRD,
     input MWR,
@@ -29,16 +29,16 @@ module board_b_d (
     output [4:0] BLUE,
     output P1L,
 
-	input [63:0] sdr_data,
-	output [24:1] sdr_addr,
-	output sdr_req,
-	input sdr_rdy,
+    input [63:0] sdr_data,
+    output [24:1] sdr_addr,
+    output sdr_req,
+    input sdr_rdy,
 
     input paused,
     
-   	input en_layer_a,
-   	input en_layer_b,
-   	input en_palette
+       input en_layer_a,
+       input en_layer_b,
+       input en_palette
 );
 
 // M72-B-D 1/8
@@ -182,11 +182,11 @@ kna91h014 kna91h014(
 
     .E1_N(), // TODO
     .E2_N(), // TODO
-	
-	.MWR(MWR & BYTE_SEL[0]),
-	.MRD(MRD),
+    
+    .MWR(MWR & BYTE_SEL[0]),
+    .MRD(MRD),
 
-	.DIN(DIN),
+    .DIN(DIN),
     .DOUT(pal_dout),
     .DOUT_VALID(pal_dout_valid),
     .A(A),

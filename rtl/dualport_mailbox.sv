@@ -57,31 +57,31 @@ end
 
 
 dpramv #(.widthad_a(11)) ram_0(
-	.clock_a(clk_l),
-	.address_a(addr_l[11:1]),
-	.q_a(dout_0_l),
-	.wren_a(we_l[0]),
-	.data_a(din_l[7:0]),
+    .clock_a(clk_l),
+    .address_a(addr_l[11:1]),
+    .q_a(dout_0_l),
+    .wren_a(we_l[0]),
+    .data_a(din_l[7:0]),
 
-	.clock_b(clk_r),
-	.address_b(addr_r[11:1]),
-	.q_b(dout_0_r),
-	.wren_b(we_r & ~addr_r[0]),
-	.data_b(din_r)
+    .clock_b(clk_r),
+    .address_b(addr_r[11:1]),
+    .q_b(dout_0_r),
+    .wren_b(we_r & ~addr_r[0]),
+    .data_b(din_r)
 );
 
 dpramv #(.widthad_a(11)) ram_1(
-	.clock_a(clk_l),
-	.address_a(addr_l[11:1]),
-	.q_a(dout_1_l),
-	.wren_a(we_l[1]),
-	.data_a(din_l[15:8]),
+    .clock_a(clk_l),
+    .address_a(addr_l[11:1]),
+    .q_a(dout_1_l),
+    .wren_a(we_l[1]),
+    .data_a(din_l[15:8]),
 
-	.clock_b(clk_r),
-	.address_b(addr_r[11:1]),
-	.q_b(dout_1_r),
-	.wren_b(we_r & addr_r[0]),
-	.data_b(din_r)
+    .clock_b(clk_r),
+    .address_b(addr_r[11:1]),
+    .q_b(dout_1_r),
+    .wren_b(we_r & addr_r[0]),
+    .data_b(din_r)
 );
 
 endmodule
