@@ -185,11 +185,6 @@ begin
 	end
 end
 
-reg [15:0] cpu_shared_ram_dout_r = 0;
-always_ff @(posedge CLK_32M) begin
-	if (MRD) cpu_shared_ram_dout_r <= cpu_shared_ram_dout;
-end
-
 always_ff @(posedge CLK_96M or negedge reset_n)
 begin
 	if (!reset_n) begin
@@ -243,7 +238,7 @@ always_comb begin
 	else if (obj_pal_dout_valid_lat) d16 = obj_pal_dout;
 	else if (sound_dout_valid_lat) d16 = sound_dout;
 	else if (sprite_dout_valid_lat) d16 = sprite_dout;
-	else if (cpu_mem_addr[19:16] == 4'hb) d16 = cpu_shared_ram_dout_r;
+	else if (cpu_mem_addr[19:16] == 4'hb) d16 = cpu_shared_ram_dout;
 	else d16 = cpu_ram_rom_data;
 	cpu_mem_in = word_shuffle(cpu_mem_addr, d16);
 

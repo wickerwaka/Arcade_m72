@@ -19,7 +19,7 @@ module pal_3a
     output logic S
 );
 
-	always_comb begin
+    always_comb begin
         case (board_type)
         M72_RTYPE: begin
             casex (A[19:16])
@@ -31,16 +31,24 @@ module pal_3a
         end
         M72_GALLOP: begin
             casex (A[19:16])
-            4'b101x: begin ls245_en = DBEN & M_IO; writable = 1; sdr_addr = REGION_CPU_RAM.base_addr[24:1] | A[16:1]; end
+            4'b1010: begin ls245_en = DBEN & M_IO; writable = 1; sdr_addr = REGION_CPU_RAM.base_addr[24:1] | A[16:1]; end
             4'b0xxx: begin ls245_en = DBEN & M_IO; writable = 0; sdr_addr = REGION_CPU_ROM.base_addr[24:1] | A[18:1]; end
             4'b1111: begin ls245_en = DBEN & M_IO; writable = 0; sdr_addr = REGION_CPU_ROM.base_addr[24:1] | A[18:1]; end
             default: begin ls245_en = 0; writable = 0; sdr_addr = 24'd0; end
             endcase
-			end
+        end
+        M72_DBREED: begin
+            casex (A[19:16])
+            4'b100x: begin ls245_en = DBEN & M_IO; writable = 1; sdr_addr = REGION_CPU_RAM.base_addr[24:1] | A[16:1]; end
+            4'b0xxx: begin ls245_en = DBEN & M_IO; writable = 0; sdr_addr = REGION_CPU_ROM.base_addr[24:1] | A[18:1]; end
+            4'b1111: begin ls245_en = DBEN & M_IO; writable = 0; sdr_addr = REGION_CPU_ROM.base_addr[24:1] | A[18:1]; end
+            default: begin ls245_en = 0; writable = 0; sdr_addr = 24'd0; end
+            endcase
+        end
         endcase
 
         S = COD[11];
-	end
+    end
 
 endmodule
 

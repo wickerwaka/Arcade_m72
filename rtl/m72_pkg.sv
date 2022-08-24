@@ -26,7 +26,8 @@ package m72_pkg;
 
     typedef enum logic[7:0] {
         M72_RTYPE,
-        M72_GALLOP
+        M72_GALLOP,
+        M72_DBREED
     } board_type_t;
 
 endpackage
