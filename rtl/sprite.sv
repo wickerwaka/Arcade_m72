@@ -206,7 +206,7 @@ always_ff @(posedge CLK_96M) begin
             code <= obj_code + row_y[8:4] + ( ( obj_flipx ? ( width - span - 1 ) : span ) * 16'd8 );
         end
         3: begin
-            sdr_addr <= REGION_SPRITE.base_addr[24:1] + { code[11:0], row_y[3:0], 2'b00 };
+            sdr_addr <= REGION_SPRITE.base_addr[24:1] + { code[12:0], row_y[3:0], 2'b00 };
             sdr_req <= 1;
             sdr_wait <= 1;
         end
