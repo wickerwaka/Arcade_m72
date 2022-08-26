@@ -21,7 +21,7 @@ module rom_loader
     output reg [1:0] bram_cs,
     output bram_wr,
 
-    output board_type_t board_type
+    output board_cfg_t board_cfg
 );
 
 reg [24:0] base_addr;
@@ -30,14 +30,14 @@ reg [24:0] offset;
 reg [31:0] size;
 
 enum {
-    BOARD_TYPE,
+    BOARD_CFG,
     SIZE_0,
     SIZE_1,
     SIZE_2,
     SIZE_3,
     SDR_DATA,
     BRAM_DATA
-} stage = BOARD_TYPE;
+} stage = BOARD_CFG;
 
 reg [3:0] region = 0;
 
@@ -54,7 +54,7 @@ always @(posedge sys_clk) begin
     
     if (ioctl_wr) begin
         case (stage)
-        BOARD_TYPE: begin board_type <= board_type_t'(ioctl_data); stage <= SIZE_0; end
+        BOARD_CFG: begin board_cfg <= board_cfg_t'(ioctl_data); stage <= SIZE_0; end
         SIZE_0: begin size[31:24] <= ioctl_data; stage <= SIZE_1; end
         SIZE_1: begin size[23:16] <= ioctl_data; stage <= SIZE_2; end
         SIZE_2: begin size[15:8] <= ioctl_data; stage <= SIZE_3; end
