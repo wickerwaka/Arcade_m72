@@ -357,7 +357,7 @@ wire [7:0] bram_data;
 wire [1:0] bram_cs;
 wire bram_wr;
 
-board_type_t board_type;
+board_cfg_t board_cfg;
 
 sdram sdram
 (
@@ -406,7 +406,7 @@ rom_loader rom_loader(
     .bram_cs(bram_cs),
     .bram_wr(bram_wr),
 
-    .board_type(board_type)
+    .board_cfg(board_cfg)
 );
 
 ///////////////////         Keyboard           //////////////////
@@ -507,7 +507,7 @@ m72 m72(
     .AUDIO_L(AUDIO_L),
     .AUDIO_R(AUDIO_R),
 
-    .board_type(board_type),
+    .board_cfg(board_cfg),
 
     .coin({~m_coin2, ~m_coin1}),
     

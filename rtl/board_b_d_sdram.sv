@@ -4,12 +4,12 @@ module board_b_d_sdram(
     input clk,
     input clk_ram,
 
-    input [19:0] addr_a,
+    input [17:0] addr_a,
     output [31:0] data_a,
     input req_a,
     output rdy_a,
 
-    input [19:0] addr_b,
+    input [17:0] addr_b,
     output [31:0] data_b,
     input req_b,
     output rdy_b,
@@ -28,7 +28,7 @@ reg [31:0] active_data;
 
 reg req_a_2 = 0;
 reg req_b_2 = 0;
-reg [19:0] addr_a_2, addr_b_2;
+reg [24:1] addr_a_2, addr_b_2;
 
 always @(posedge clk) begin
     sdr_req <= 0;
@@ -37,12 +37,12 @@ always @(posedge clk) begin
 
     if (req_a & ~req_a_2) begin
         req_a_2 <= 1;
-        addr_a_2 <= addr_a;
+        addr_a_2 <= { REGION_BG_A.base_addr[24:19], addr_a };
     end
 
     if (req_b & ~req_b_2) begin
         req_b_2 <= 1;
-        addr_b_2 <= addr_b;
+        addr_b_2 <= { REGION_BG_B.base_addr[24:19], addr_b };
     end
 
     if (active) begin
@@ -60,13 +60,13 @@ always @(posedge clk) begin
         end
     end else begin
         if (req_a_2) begin
-            sdr_addr <= REGION_BG_A.base_addr[24:1] + { addr_a_2, 1'b0 };
+            sdr_addr <= addr_a_2;
             sdr_req <= 1;
             active_rq <= ~active_rq;
             active <= 2'd1;
             req_a_2 <= 0;
         end else if (req_b_2) begin
-            sdr_addr <= REGION_BG_B.base_addr[24:1] + { addr_b_2, 1'b0 };
+            sdr_addr <= addr_b_2;
             sdr_req <= 1;
             active_rq <= ~active_rq;
             active <= 2'd2;

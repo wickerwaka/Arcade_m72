@@ -24,10 +24,9 @@ package m72_pkg;
 
     parameter region_t REGION_CPU_RAM = '{ 'h400000, 0, 2'b00 };
 
-    typedef enum logic[7:0] {
-        M72_RTYPE,
-        M72_GALLOP,
-        M72_DBREED
-    } board_type_t;
-
+    typedef struct packed {
+        bit [3:0] reserved;
+        bit main_mculatch;
+        bit [2:0] memory_map;
+    } board_cfg_t;
 endpackage

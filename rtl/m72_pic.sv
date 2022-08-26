@@ -89,6 +89,8 @@ always_ff @(posedge clk or posedge reset) begin
         end
 
         if (init_state == INIT_DONE) begin
+            intp_latch <= intp;
+
             if (int_req) begin
                 if (int_ack) begin
                     int_req <= 0;
@@ -98,8 +100,6 @@ always_ff @(posedge clk or posedge reset) begin
                 bit [3:0] p;
                 bit t;
 
-                intp_latch <= intp;
-
                 if (edge_triggered)
                     trig = intp & ~intp_latch;
                 else
@@ -107,9 +107,11 @@ always_ff @(posedge clk or posedge reset) begin
                 
                 t = 0;
                 for( p = 0; p < 8 && !t; p = p + 1 ) begin
-                    if (trig[p] & ~IMW[p]) begin
-                        int_req <= 1;
-                        int_vector <= {IW2[6:3], p[2:0], 2'b00};
+                    if (intp[p]) begin
+                        if (trig[p] & ~IMW[p]) begin
+                            int_req <= 1;
+                            int_vector <= {IW2[6:3], p[2:0], 2'b00};
+                        end
                         t = 1;
                     end
                 end

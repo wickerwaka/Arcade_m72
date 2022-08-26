@@ -5,6 +5,7 @@
     <year>1988</year>
     <manufacturer>IREM</manufacturer>
     <category>Shooter</category>
+    <rotation>vertical (ccw)</rotation>
     <rbf>m72</rbf>
 
     <joystick>8-way</joystick>

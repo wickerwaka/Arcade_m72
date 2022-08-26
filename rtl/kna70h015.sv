@@ -36,7 +36,7 @@ assign VE = V ^ {9{NL}};
 assign HE = H ^ {10{NL}};
 assign V = v_count;
 assign H = h_count;
-assign HINT = INT_D && (VE == h_int_line);
+assign HINT = int_d_latch && (VE == h_int_line);
 assign HBLK = q_ic75[0];
 assign HS = ~q_ic75[1];
 assign INT_D = q_ic75[2];
@@ -46,7 +46,7 @@ assign VS = ~q_ic66[1];
 wire [3:0] q_ic75 = ic75[{S24H, h_count[9:3]}];
 wire [3:0] q_ic66 = ic66[{S24H, v_count[8:2]}];
 
-
+reg int_d_latch = 0;
 reg [8:0] v_count;
 reg [8:0] h_int_line;
 reg [9:0] h_count;
@@ -81,6 +81,8 @@ always @(posedge CLK_32M) begin
             h_count <= (S24H ? 10'h0c0 : 10'h100);
             v_count <= v_count + 9'd1;
         end
+
+        if (h_count[1]) int_d_latch <= INT_D;
 
         if (v_count == (S24H ? 9'h1e1 : 9'h18d)) v_count <= (S24H ? 9'h01e : (video_50hz ? 9'h056 : 9'h072));
     end

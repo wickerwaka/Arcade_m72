@@ -7,7 +7,7 @@ module m72 (
     input reset_n,
     output reg ce_pix,
 
-    input board_type_t board_type,
+    input board_cfg_t board_cfg,
     
     input z80_reset_n,
 
@@ -319,7 +319,7 @@ pal_3a pal_3a(
     .DBEN(DBEN),
     .M_IO(MRD | MWR),
     .COD(),
-    .board_type(board_type),
+    .board_cfg(board_cfg),
     .ls245_en(ls245_en),
     .sdr_addr(cpu_region_addr),
     .writable(cpu_region_writable),
@@ -616,6 +616,8 @@ dualport_mailbox_2kx16 mcu_shared_ram(
     .int_r(mcu_ram_int)
 );
 
+wire [7:0] mculatch_data = board_cfg.main_mculatch ? cpu_io_out : snd_io_data;
+wire mculatch_en = board_cfg.main_mculatch ? ( IOWR && cpu_io_addr == 8'hc0 ) : ( snd_io_req && snd_io_addr == 8'h82 );
 
 mcu mcu(
     .CLK_32M(CLK_32M),
@@ -629,8 +631,8 @@ mcu mcu(
     .ext_ram_we(mcu_ram_we),
     .ext_ram_int(mcu_ram_int),
 
-    .z80_din(snd_io_data),
-    .z80_latch_en(snd_io_req & snd_io_addr == 8'h82),
+    .z80_din(mculatch_data),
+    .z80_latch_en(mculatch_en),
 
     .sample_data(mcu_sample_data),
 
