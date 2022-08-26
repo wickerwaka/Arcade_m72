@@ -185,12 +185,22 @@ begin
     end
 end
 
-always_ff @(posedge CLK_96M or negedge reset_n)
-begin
+reg sdr_cpu_rq, sdr_cpu_ack, sdr_cpu_rq2;
+
+always_ff @(posedge CLK_96M) begin
+    sdr_cpu_req <= 0;
+    if (sdr_cpu_rdy) sdr_cpu_ack <= sdr_cpu_rq;
+    if (sdr_cpu_rq != sdr_cpu_rq2) begin
+        sdr_cpu_req <= 1;
+        sdr_cpu_rq2 <= sdr_cpu_rq;
+    end
+end
+
+
+always_ff @(posedge CLK_32M or negedge reset_n) begin
     if (!reset_n) begin
         mem_rq_active <= 0;
     end else begin
-        sdr_cpu_req <= 0;
         if (!mem_rq_active) begin
             if (ls245_en && ((cpu_mem_read_w & ~cpu_mem_read_lat) || (cpu_mem_write_w & ~cpu_mem_write_lat))) begin // sdram request
                 sdr_cpu_wr_sel <= 2'b00;
@@ -199,10 +209,10 @@ begin
                     sdr_cpu_wr_sel <= cpu_word_byte_sel;
                     sdr_cpu_din <= cpu_word_out;
                 end
-                sdr_cpu_req <= 1;
+                sdr_cpu_rq <= ~sdr_cpu_rq;
                 mem_rq_active <= 1;
             end
-        end else if (sdr_cpu_rdy) begin
+        end else if (sdr_cpu_rq == sdr_cpu_ack) begin
             cpu_ram_rom_data <= sdr_cpu_dout;
             mem_rq_active <= 0;
         end
